@@ -1,0 +1,957 @@
+{% comment %}
+  ─────────────────────────────────────────────────────────────────────────────
+  "Botón Contra Entrega (GLOZ)" — reemplazo de Releasit COD Form & Upsells.
+
+  Cómo funciona (en simple):
+  - Se agrega UNA vez en la página de producto (o en la plantilla `product.json`)
+    y funciona AUTOMÁTICO en TODOS los productos de la tienda: lee la variante y
+    el precio de la página actual. NO hay que configurar nada por producto.
+  - Muestra un BOTÓN. Al hacer clic, abre un POPUP (modal) con el formulario.
+  - Todo lo que ves dentro del popup (título, ofertas, campos, botones,
+    garantía, productos extra…) son BLOQUES de esta sección: los agregas,
+    quitas y REORDENAS desde el Editor de temas, con el sistema nativo de
+    Shopify (el mismo con el que reordenas cualquier sección).
+  - Los colores, tipografía, animación, radio de esquinas, etc. se configuran
+    en los ajustes de la sección — sin tocar código.
+
+  El JS NO lee este archivo directamente: leemos `section.blocks` aquí abajo y
+  lo volcamos a un <script type="application/json"> en el ORDEN exacto en que
+  aparecen los bloques; `cod-form-gloz.js` arma el popup a partir de esos datos.
+
+  IMPORTANTE — precio: `variant.price`/`variant.compare_at_price` en Liquid
+  vienen en la SUBUNIDAD de la moneda (p. ej. $79.990 COP = 7999000), tal como
+  documenta Shopify (shopify.dev/docs/api/liquid/objects/money). Por eso aquí
+  SIEMPRE se dividen entre 100 antes de mandarlos al JS — así el popup muestra
+  el precio REAL, no inflado.
+  ─────────────────────────────────────────────────────────────────────────────
+{% endcomment %}
+
+{{ 'cod-form-gloz.css' | asset_url | stylesheet_tag }}
+
+{%- if product -%}
+  {%- assign v = product.selected_or_first_available_variant -%}
+  {%- assign s = section.settings -%}
+
+  {%- comment %} ── Precio REAL (la subunidad de Liquid siempre se divide /100) ── {%- endcomment %}
+  {%- assign v_price = v.price | divided_by: 100.0 -%}
+  {%- assign v_compare = 0 -%}
+  {%- if v.compare_at_price and v.compare_at_price > v.price -%}
+    {%- assign v_compare = v.compare_at_price | divided_by: 100.0 -%}
+  {%- endif -%}
+
+  {%- comment %} ── Velocidad de animación en ms según el select ── {%- endcomment %}
+  {%- assign anim_ms = 220 -%}
+  {%- if s.animation_speed == 'rapida' -%}{%- assign anim_ms = 140 -%}
+  {%- elsif s.animation_speed == 'lenta' -%}{%- assign anim_ms = 340 -%}
+  {%- endif -%}
+
+  {%- comment %} ── Escala de tipografía ── {%- endcomment %}
+  {%- assign font_scale_val = 1 -%}
+  {%- if s.font_scale == 'sm' -%}{%- assign font_scale_val = 0.92 -%}
+  {%- elsif s.font_scale == 'lg' -%}{%- assign font_scale_val = 1.1 -%}
+  {%- endif -%}
+
+  {%- comment %} ── Escala de densidad/espaciado ── {%- endcomment %}
+  {%- assign space_scale_val = 1 -%}
+  {%- if s.density == 'compact' -%}{%- assign space_scale_val = 0.8 -%}
+  {%- elsif s.density == 'relaxed' -%}{%- assign space_scale_val = 1.2 -%}
+  {%- endif -%}
+
+  {%- comment %} ── Radio de los campos según el contorno elegido ── {%- endcomment %}
+  {%- assign field_radius_px = 14 -%}
+  {%- if s.field_contour == 'rect' -%}{%- assign field_radius_px = 8 -%}
+  {%- elsif s.field_contour == 'oval' -%}{%- assign field_radius_px = 999 -%}
+  {%- endif -%}
+
+  {%- comment %}
+    ── Sombra del botón de afuera (trigger) ──
+    Misma fórmula que usa el JS para los botones de adentro: blur = px elegido,
+    offset ≈ 36% del blur, opacidad fija suave. 0 = sin sombra.
+  {%- endcomment %}
+  {%- assign t_shadow = s.trigger_shadow | default: 22 -%}
+  {%- if t_shadow > 0 -%}
+    {%- assign t_offset = t_shadow | times: 36 | divided_by: 100 -%}
+    {%- capture t_shadow_css -%}0 {{ t_offset }}px {{ t_shadow }}px rgba(0,0,0,0.16){%- endcapture -%}
+  {%- else -%}
+    {%- assign t_shadow_css = 'none' -%}
+  {%- endif -%}
+
+  <div
+    class="gloz-cod-block"
+    id="gloz-cod-{{ section.id }}"
+    style="
+      --gloz-trigger-bg:{{ s.trigger_bg }};
+      --gloz-trigger-text:{{ s.trigger_text_color }};
+      --gloz-trigger-border:{{ s.trigger_border_color | default: s.trigger_bg }};
+      --gloz-trigger-border-w:{{ s.trigger_border_width | default: 0 }}px;
+      --gloz-trigger-radius:{{ s.trigger_radius | default: 20 }}px;
+      --gloz-trigger-font:{{ s.trigger_font_size | default: 17 }}px;
+      --gloz-trigger-section-bg:{{ s.trigger_section_bg }};
+      --gloz-trigger-shadow:{{ t_shadow_css }};
+      --gloz-radius:{{ s.corner_radius }}px;
+      --gloz-font-scale:{{ font_scale_val }};
+      --gloz-space-scale:{{ space_scale_val }};
+    "
+  >
+    {%- comment %}
+      Si "Mostrar el botón que abre el formulario" está apagado, NO se renderiza
+      el botón por defecto (Felix conecta sus propios botones/sticky/ofertas
+      con data-gloz-open). El popup y `window.glozCOD` siguen activos igual:
+      el <script> de datos y el `cod-form-gloz.js` se cargan siempre, más abajo.
+    {%- endcomment -%}
+    {%- if s.show_trigger != false -%}
+      <button
+        type="button"
+        class="gloz-cod-trigger gloz-cod-trigger--{{ s.button_style }} gloz-cod-trigger--{{ s.button_size }} gloz-trig-anim-{{ s.trigger_anim_style | default: 'none' }}"
+        data-gloz-cod-trigger
+        {% if s.trigger_full_width == false %}style="width:auto;display:inline-flex;"{% endif %}
+      >
+        {%- if s.trigger_icon != 'none' -%}<span class="gloz-trig-ic" data-gloz-icon="{{ s.trigger_icon }}"></span>{%- endif -%}
+        <span class="gloz-trig-textcol">
+          <span class="gloz-trig-maintext">{{ s.trigger_text }}</span>
+          {%- if s.trigger_subtitle != blank -%}<span class="gloz-trig-subtext">{{ s.trigger_subtitle }}</span>{%- endif -%}
+        </span>
+      </button>
+    {%- endif -%}
+  </div>
+
+  {%- comment %}
+    ── Datos de la sección para el JS (en el orden real de section.blocks) ──
+    Todo lo que el popup necesita: URL del backend, producto/variante actual,
+    tema visual completo y la lista de bloques con sus settings.
+  {%- endcomment %}
+  <script type="application/json" id="gloz-cod-data-{{ section.id }}">
+  {
+    "sectionId": {{ section.id | json }},
+    "apiUrl": {{ s.api_url | json }},
+    "shop": {{ shop.permanent_domain | json }},
+    "currency": {{ cart.currency.iso_code | json }},
+    "product": {
+      "variantId": {{ v.id | json }},
+      "price": {{ v_price | json }},
+      "compareAtPrice": {% if v_compare > 0 %}{{ v_compare | json }}{% else %}null{% endif %},
+      "title": {{ product.title | json }},
+      "image": {{ product.featured_image | image_url: width: 200 | json }},
+      "url": {{ product.url | json }},
+      "variants": [
+        {%- comment %} Solo se usa si el producto tiene MÁS DE UNA variante (el JS decide si muestra el selector). Precio siempre /100 (ver nota de subunidad arriba). {%- endcomment -%}
+        {%- for pv in product.variants -%}
+          { "id": {{ pv.id | json }}, "title": {{ pv.title | json }}, "available": {{ pv.available | json }}, "price": {{ pv.price | divided_by: 100.0 | json }} }{% unless forloop.last %},{% endunless %}
+        {%- endfor -%}
+      ]
+    },
+    "pixels": {
+      "metaEnabled": {{ s.meta_enabled | json }},
+      "metaPixelId": {{ s.meta_pixel_id | json }},
+      "tiktokEnabled": {{ s.tiktok_enabled | json }},
+      "tiktokPixelId": {{ s.tiktok_pixel_id | json }}
+    },
+    "theme": {
+      "popupBg": {{ s.popup_bg | json }},
+      "textColor": {{ s.text_color | json }},
+      "mutedTextColor": {{ s.muted_text_color | json }},
+      "borderColor": {{ s.border_color | json }},
+      "accentColor": {{ s.accent_color | json }},
+      "offerSelectedBg": {{ s.offer_selected_bg | json }},
+      "offerSelectedBorder": {{ s.offer_selected_border | json }},
+      "badgeBg": {{ s.badge_bg | json }},
+      "badgeText": {{ s.badge_text | json }},
+      "ctaBg": {{ s.cta_bg | json }},
+      "ctaText": {{ s.cta_text | json }},
+      "prepaidColor": {{ s.prepaid_color | json }},
+      "errorColor": {{ s.error_color | json }},
+      "overlayColor": {{ s.overlay_color | json }},
+      "overlayOpacity": {{ s.overlay_opacity | json }},
+      "overlayBlur": {{ s.overlay_blur | json }},
+      "inheritThemeFont": {{ s.inherit_theme_font | json }},
+      "fontScale": {{ font_scale_val | json }},
+      "labelFontSize": {{ s.label_font_size | json }},
+      "labelColor": {{ s.label_color | json }},
+      "headingWeight": {{ s.heading_weight | json }},
+      "cornerRadius": {{ s.corner_radius | json }},
+      "spaceScale": {{ space_scale_val | json }},
+      "showHeader": {{ s.show_header | json }},
+      "fieldRadius": {{ field_radius_px | json }},
+      "fieldShadow": {{ s.field_shadow | default: 0 | json }},
+      "buttonStyle": {{ s.button_style | json }},
+      "buttonSize": {{ s.button_size | json }},
+      "enableAnimations": {{ s.enable_animations | json }},
+      "entranceStyle": {{ s.entrance_style | json }},
+      "animationMs": {{ anim_ms | json }},
+      "enableHoverFx": {{ s.enable_hover_fx | json }},
+      "successSize": {{ s.success_size | json }},
+      "noticeSize": {{ s.notice_size | json }}
+    },
+    "texts": {
+      "submitting": {{ s.submitting_text | json }},
+      "successTitle": {{ s.success_title | json }},
+      "successBody": {{ s.success_body | json }},
+      "errorGeneric": {{ s.error_generic_text | json }},
+      "closeLabel": {{ s.close_label | json }}
+    },
+    "blocks": [
+      {%- for block in section.blocks -%}
+        {
+          "type": {{ block.type | json }},
+          "id": {{ block.id | json }},
+          {%- comment -%}
+            Nota técnica: cada tipo de bloque vuelca sus settings EXPLÍCITAMENTE
+            (`block.settings.xxx`) en vez de iterar `block.settings` como hash
+            genérico. Es más código, pero es la forma 100% garantizada de leer
+            settings en Liquid real de Shopify (la iteración genérica de hashes
+            de settings no siempre se comporta igual entre temas/versiones).
+          {%- endcomment -%}
+          "settings": {
+            {%- case block.type -%}
+              {%- when 'title' -%}
+                "heading": {{ block.settings.heading | json }},
+                "title_size": {{ block.settings.title_size | json }},
+                "title_color": {{ block.settings.title_color | json }},
+                "subheading": {{ block.settings.subheading | json }},
+                "subtitle_size": {{ block.settings.subtitle_size | json }},
+                "subtitle_color": {{ block.settings.subtitle_color | json }},
+                "show_product_thumb": {{ block.settings.show_product_thumb | json }},
+                "align": {{ block.settings.align | json }}
+              {%- when 'offers' -%}
+                "offers_title": {{ block.settings.offers_title | json }},
+                "offers_title_enabled": {{ block.settings.offers_title_enabled | json }},
+                "offers_title_size": {{ block.settings.offers_title_size | json }},
+                "offers_title_color": {{ block.settings.offers_title_color | json }},
+                "show_compare_at": {{ block.settings.show_compare_at | json }},
+                "show_per_unit": {{ block.settings.show_per_unit | json }},
+                "offer_bg": {{ block.settings.offer_bg | json }},
+                "offer_border_color": {{ block.settings.offer_border_color | json }},
+                "offer_radius": {{ block.settings.offer_radius | json }},
+                "badge_style": {{ block.settings.badge_style | json }},
+                "badge_text_color": {{ block.settings.badge_text_color | json }},
+                "badge_text_size": {{ block.settings.badge_text_size | json }},
+                "badge_anim": {{ block.settings.badge_anim | json }},
+                "offer_anim_enabled": {{ block.settings.offer_anim_enabled | json }},
+                "offer_name_size": {{ block.settings.offer_name_size | json }},
+                "offer_name_color": {{ block.settings.offer_name_color | json }},
+                "offer_price_size": {{ block.settings.offer_price_size | json }},
+                "offer_price_color": {{ block.settings.offer_price_color | json }},
+                "offer_per_unit_size": {{ block.settings.offer_per_unit_size | json }},
+                "offer_per_unit_color": {{ block.settings.offer_per_unit_color | json }},
+                "note_size": {{ block.settings.note_size | json }},
+                "note_bg": {{ block.settings.note_bg | json }},
+                "note_color": {{ block.settings.note_color | json }},
+
+                "offer1_enabled": {{ block.settings.offer1_enabled | json }},
+                "offer1_units": {{ block.settings.offer1_units | json }},
+                "offer1_label": {{ block.settings.offer1_label | json }},
+                "offer1_discount_type": {{ block.settings.offer1_discount_type | json }},
+                "offer1_discount": {{ block.settings.offer1_discount | json }},
+                "offer1_fixed_price": {{ block.settings.offer1_fixed_price | json }},
+                "offer1_badge": {{ block.settings.offer1_badge | json }},
+                "offer1_default": {{ block.settings.offer1_default | json }},
+                "offer1_note": {{ block.settings.offer1_note | json }},
+                "offer1_image_url": {{ block.settings.offer1_image_url | json }},
+
+                "offer2_enabled": {{ block.settings.offer2_enabled | json }},
+                "offer2_units": {{ block.settings.offer2_units | json }},
+                "offer2_label": {{ block.settings.offer2_label | json }},
+                "offer2_discount_type": {{ block.settings.offer2_discount_type | json }},
+                "offer2_discount": {{ block.settings.offer2_discount | json }},
+                "offer2_fixed_price": {{ block.settings.offer2_fixed_price | json }},
+                "offer2_badge": {{ block.settings.offer2_badge | json }},
+                "offer2_default": {{ block.settings.offer2_default | json }},
+                "offer2_note": {{ block.settings.offer2_note | json }},
+                "offer2_image_url": {{ block.settings.offer2_image_url | json }},
+
+                "offer3_enabled": {{ block.settings.offer3_enabled | json }},
+                "offer3_units": {{ block.settings.offer3_units | json }},
+                "offer3_label": {{ block.settings.offer3_label | json }},
+                "offer3_discount_type": {{ block.settings.offer3_discount_type | json }},
+                "offer3_discount": {{ block.settings.offer3_discount | json }},
+                "offer3_fixed_price": {{ block.settings.offer3_fixed_price | json }},
+                "offer3_badge": {{ block.settings.offer3_badge | json }},
+                "offer3_default": {{ block.settings.offer3_default | json }},
+                "offer3_note": {{ block.settings.offer3_note | json }},
+                "offer3_image_url": {{ block.settings.offer3_image_url | json }},
+
+                "offer4_enabled": {{ block.settings.offer4_enabled | json }},
+                "offer4_units": {{ block.settings.offer4_units | json }},
+                "offer4_label": {{ block.settings.offer4_label | json }},
+                "offer4_discount_type": {{ block.settings.offer4_discount_type | json }},
+                "offer4_discount": {{ block.settings.offer4_discount | json }},
+                "offer4_fixed_price": {{ block.settings.offer4_fixed_price | json }},
+                "offer4_badge": {{ block.settings.offer4_badge | json }},
+                "offer4_default": {{ block.settings.offer4_default | json }},
+                "offer4_note": {{ block.settings.offer4_note | json }},
+                "offer4_image_url": {{ block.settings.offer4_image_url | json }}
+              {%- when 'field_name' or 'field_lastname' or 'field_phone' or 'field_address' or 'field_email' or 'field_extra' -%}
+                "label": {{ block.settings.label | json }},
+                "placeholder": {{ block.settings.placeholder | json }},
+                "required": {{ block.settings.required | json }}
+              {%- when 'field_variant' -%}
+                "label": {{ block.settings.label | json }},
+                "per_unit": {{ block.settings.per_unit | json }},
+                "contour": {{ block.settings.contour | json }},
+                "shadow": {{ block.settings.shadow | json }},
+                "font_size": {{ block.settings.font_size | json }},
+                "text_color": {{ block.settings.text_color | json }}
+              {%- when 'field_location' -%}
+                "label_department": {{ block.settings.label_department | json }},
+                "placeholder_department": {{ block.settings.placeholder_department | json }},
+                "label_city": {{ block.settings.label_city | json }},
+                "placeholder_city": {{ block.settings.placeholder_city | json }}
+              {%- when 'image' -%}
+                "image_url": {{ block.settings.image_url | json }},
+                "image_asset": {% if block.settings.image %}{{ block.settings.image | image_url: width: 800 | json }}{% else %}null{% endif %},
+                "alt": {{ block.settings.alt | json }},
+                "radius": {{ block.settings.radius | json }},
+                "max_width": {{ block.settings.max_width | json }}
+              {%- when 'custom_text' -%}
+                "heading": {{ block.settings.heading | json }},
+                "body": {{ block.settings.body | json }},
+                "text_color": {{ block.settings.text_color | json }},
+                "align": {{ block.settings.align | json }},
+                "size": {{ block.settings.size | json }}
+              {%- when 'cod_button' -%}
+                "text": {{ block.settings.text | json }},
+                "subtitle": {{ block.settings.subtitle | json }},
+                "helper_text": {{ block.settings.helper_text | json }},
+                "icon": {{ block.settings.icon | json }},
+                "bg": {{ block.settings.bg | json }},
+                "text_color": {{ block.settings.text_color | json }},
+                "border_color": {{ block.settings.border_color | json }},
+                "border_width": {{ block.settings.border_width | json }},
+                "radius": {{ block.settings.radius | json }},
+                "font_size": {{ block.settings.font_size | json }},
+                "shadow": {{ block.settings.shadow | default: 0 | json }},
+                "anim_style": {{ block.settings.anim_style | json }}
+              {%- when 'prepaid_button' -%}
+                "text": {{ block.settings.text | json }},
+                "subtitle": {{ block.settings.subtitle | json }},
+                "divider_text": {{ block.settings.divider_text | json }},
+                "helper_text": {{ block.settings.helper_text | json }},
+                "icon": {{ block.settings.icon | json }},
+                "fill_style": {{ block.settings.fill_style | json }},
+                "bg": {{ block.settings.bg | json }},
+                "text_color": {{ block.settings.text_color | json }},
+                "border_color": {{ block.settings.border_color | json }},
+                "border_width": {{ block.settings.border_width | json }},
+                "radius": {{ block.settings.radius | json }},
+                "font_size": {{ block.settings.font_size | json }},
+                "shadow": {{ block.settings.shadow | default: 0 | json }},
+                "anim_style": {{ block.settings.anim_style | json }}
+              {%- when 'upsell' -%}
+                "label_override": {{ block.settings.label_override | json }},
+                "visible_to_customer": {{ block.settings.visible_to_customer | json }},
+                "discount_type": {{ block.settings.discount_type | json }},
+                "discount": {{ block.settings.discount | json }},
+                "fixed_price": {{ block.settings.fixed_price | json }},
+                "default_checked": {{ block.settings.default_checked | json }},
+                "show_price": {{ block.settings.show_price | json }},
+                "show_image": {{ block.settings.show_image | json }},
+                "image_url": {{ block.settings.image_url | json }},
+                "border_color": {{ block.settings.border_color | json }},
+                "radius": {{ block.settings.radius | json }},
+                {%- comment -%}
+                  "variant_id": para productos que Felix saca del canal
+                  "Tienda online" a propósito (kits ocultos). Cuando el
+                  producto está fuera del canal, `block.settings.product`
+                  llega `nil` en Liquid (el product picker/objeto global está
+                  limitado al canal actual) — por eso "product" abajo es
+                  SIEMPRE a prueba de nil (nunca genera JSON inválido) y el JS
+                  usa este "variant_id" manual como respaldo, resolviendo
+                  título/precio/imagen reales contra el backend
+                  (GET /variant-info, que sí ve productos fuera de canal).
+                {%- endcomment -%}
+                "variant_id": {{ block.settings.variant_id | json }},
+                "product": {%- assign up = block.settings.product -%}
+                  {%- assign upv = blank -%}
+                  {%- if up -%}{%- assign upv = up.selected_or_first_available_variant -%}{%- endif -%}
+                  {%- if up and upv -%}
+                    {%- assign upv_price = upv.price | divided_by: 100.0 -%}
+                    {%- assign upv_compare = 0 -%}
+                    {%- if upv.compare_at_price and upv.compare_at_price > upv.price -%}
+                      {%- assign upv_compare = upv.compare_at_price | divided_by: 100.0 -%}
+                    {%- endif -%}
+                    {
+                      "variantId": {{ upv.id | json }},
+                      "title": {{ up.title | json }},
+                      "price": {{ upv_price | json }},
+                      "compareAtPrice": {% if upv_compare > 0 %}{{ upv_compare | json }}{% else %}null{% endif %},
+                      "image": {{ up.featured_image | image_url: width: 160 | json }},
+                      "available": {{ upv.available | json }}
+                    }
+                  {%- else -%}
+                    null
+                  {%- endif -%}
+              {%- when 'guarantee' -%}
+                "text": {{ block.settings.text | json }},
+                "icon": {{ block.settings.icon | json }},
+                "style": {{ block.settings.style | json }},
+                "text_size": {{ block.settings.text_size | json }}
+              {%- when 'trust_text' -%}
+                "text": {{ block.settings.text | json }},
+                "align": {{ block.settings.align | json }},
+                "style": {{ block.settings.style | json }},
+                "item1_icon": {{ block.settings.item1_icon | json }},
+                "item1_text": {{ block.settings.item1_text | json }},
+                "item2_icon": {{ block.settings.item2_icon | json }},
+                "item2_text": {{ block.settings.item2_text | json }},
+                "item3_icon": {{ block.settings.item3_icon | json }},
+                "item3_text": {{ block.settings.item3_text | json }}
+              {%- when 'scarcity' -%}
+                "mode": {{ block.settings.mode | json }},
+                "timer_minutes": {{ block.settings.timer_minutes | json }},
+                "text_template": {{ block.settings.text_template | json }},
+                "style": {{ block.settings.style | json }},
+                "bg_color": {{ block.settings.bg_color | json }},
+                "text_color": {{ block.settings.text_color | json }},
+                "show_icon": {{ block.settings.show_icon | json }}
+            {%- endcase -%}
+          }
+        }{% unless forloop.last %},{% endunless %}
+      {%- endfor -%}
+    ]
+  }
+  </script>
+
+  <script src="{{ 'cod-form-gloz.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Botón Contra Entrega",
+  "tag": "section",
+  "class": "cod-form-gloz-section",
+  "max_blocks": 30,
+  "settings": [
+    { "type": "header", "content": "Backend" },
+    { "type": "text", "id": "api_url", "label": "URL del backend (Worker)", "info": "Pega aquí la URL de TU Worker en Cloudflare. Cloudflare te la da al terminar la instalación (termina en .workers.dev). Sin esto, el formulario no funciona." },
+
+    { "type": "header", "content": "Integraciones: Meta + TikTok" },
+    { "type": "checkbox", "id": "meta_enabled", "label": "Activar Meta Pixel/CAPI", "default": false },
+    { "type": "text", "id": "meta_pixel_id", "label": "ID del Pixel de Meta", "info": "Es público, va en el navegador. El token de la Conversions API se configura aparte, en el Worker (secreto)." },
+    { "type": "checkbox", "id": "tiktok_enabled", "label": "Activar TikTok Pixel", "default": false },
+    { "type": "text", "id": "tiktok_pixel_id", "label": "Pixel Code de TikTok", "info": "Es público. El token de la Events API se configura en el Worker (secreto)." },
+
+    { "type": "header", "content": "Botón que abre el popup" },
+    { "type": "checkbox", "id": "show_trigger", "label": "Mostrar el botón que abre el formulario", "default": true, "info": "Apágalo si vas a usar tus propios botones (con data-gloz-open) para abrir el formulario. El popup sigue funcionando igual." },
+    { "type": "text", "id": "trigger_text", "label": "Texto del botón", "default": "🛒 Pedir con pago contra entrega" },
+    { "type": "text", "id": "trigger_subtitle", "label": "Subtítulo (opcional)", "info": "Segunda línea, más pequeña, debajo del texto principal." },
+    { "type": "select", "id": "trigger_icon", "label": "Ícono del botón", "default": "none", "options": [
+      { "value": "none", "label": "Ninguno" },
+      { "value": "cart", "label": "Carrito" },
+      { "value": "bag", "label": "Bolsa" },
+      { "value": "whatsapp", "label": "WhatsApp" },
+      { "value": "check", "label": "Check" }
+    ]},
+    { "type": "range", "id": "trigger_font_size", "label": "Tamaño del texto", "min": 12, "max": 24, "step": 1, "unit": "px", "default": 17 },
+    { "type": "color", "id": "trigger_bg", "label": "Fondo del botón", "default": "#E8912D" },
+    { "type": "color", "id": "trigger_text_color", "label": "Texto del botón", "default": "#1A1400" },
+    { "type": "color", "id": "trigger_border_color", "label": "Color del borde", "info": "Si lo dejas vacío usa el color de fondo." },
+    { "type": "range", "id": "trigger_border_width", "label": "Grosor del borde", "min": 0, "max": 6, "step": 1, "unit": "px", "default": 0 },
+    { "type": "range", "id": "trigger_radius", "label": "Radio de esquinas", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 20 },
+    { "type": "range", "id": "trigger_shadow", "label": "Sombra del botón", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 22 },
+    { "type": "checkbox", "id": "trigger_full_width", "label": "Botón a todo el ancho", "default": true },
+    { "type": "color", "id": "trigger_section_bg", "label": "Fondo detrás del botón", "info": "Color del contenedor. Vacío = transparente." },
+    { "type": "select", "id": "trigger_anim_style", "label": "Animación del botón", "default": "none", "options": [
+      { "value": "none", "label": "Ninguna" },
+      { "value": "pulse", "label": "Pulso" },
+      { "value": "shine", "label": "Brillo" },
+      { "value": "shake", "label": "Sacudida" }
+    ]},
+
+    { "type": "header", "content": "Encabezado del popup" },
+    { "type": "checkbox", "id": "show_header", "label": "Mostrar imagen y nombre del producto arriba", "default": false, "info": "Si lo apagas, solo queda el botón de cerrar (X) arriba a la derecha." },
+
+    { "type": "header", "content": "Campos del formulario" },
+    { "type": "select", "id": "field_contour", "label": "Contorno de los campos", "default": "round", "options": [
+      { "value": "rect", "label": "Rectangular" },
+      { "value": "round", "label": "Redondeado" },
+      { "value": "oval", "label": "Ovalado" }
+    ]},
+    { "type": "range", "id": "field_shadow", "label": "Sombra de los campos", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 0 },
+
+    { "type": "header", "content": "Colores del popup" },
+    { "type": "color", "id": "popup_bg", "label": "Fondo del popup", "default": "#FFFFFF" },
+    { "type": "color", "id": "text_color", "label": "Texto principal", "default": "#17211D" },
+    { "type": "color", "id": "muted_text_color", "label": "Texto secundario", "default": "#5B6560" },
+    { "type": "color", "id": "border_color", "label": "Bordes", "default": "#E6E3DA" },
+    { "type": "color", "id": "accent_color", "label": "Color de marca (acentos, foco, radios)", "default": "#2E6E5A" },
+    { "type": "color", "id": "offer_selected_bg", "label": "Fondo de la oferta seleccionada", "default": "#EAF3EF" },
+    { "type": "color", "id": "offer_selected_border", "label": "Borde de la oferta seleccionada", "default": "#2E6E5A" },
+    { "type": "color", "id": "badge_bg", "label": "Fondo de las etiquetas", "default": "#E8912D" },
+    { "type": "color", "id": "badge_text", "label": "Texto de las etiquetas", "default": "#1A1400" },
+    { "type": "color", "id": "cta_bg", "label": "Fondo botón contra entrega", "default": "#E8912D" },
+    { "type": "color", "id": "cta_text", "label": "Texto botón contra entrega", "default": "#1A1400" },
+    { "type": "color", "id": "prepaid_color", "label": "Color botón pago anticipado", "default": "#2E6E5A" },
+    { "type": "color", "id": "error_color", "label": "Color de error", "default": "#DC2626" },
+
+    { "type": "header", "content": "Fondo oscuro detrás del popup" },
+    { "type": "color", "id": "overlay_color", "label": "Color del overlay", "default": "#0F1714" },
+    { "type": "range", "id": "overlay_opacity", "label": "Opacidad del overlay", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 55 },
+    { "type": "range", "id": "overlay_blur", "label": "Desenfoque del overlay", "min": 0, "max": 20, "step": 1, "unit": "px", "default": 4 },
+
+    { "type": "header", "content": "Tipografía y forma" },
+    { "type": "checkbox", "id": "inherit_theme_font", "label": "Usar la tipografía del tema", "default": true, "info": "Si lo apagas, el popup usa una tipografía moderna propia." },
+    { "type": "select", "id": "font_scale", "label": "Tamaño del texto", "default": "md", "options": [
+      { "value": "sm", "label": "Pequeño" },
+      { "value": "md", "label": "Normal" },
+      { "value": "lg", "label": "Grande" }
+    ]},
+    { "type": "range", "id": "label_font_size", "label": "Tamaño de etiquetas", "min": 11, "max": 22, "step": 1, "unit": "px", "default": 15 },
+    { "type": "color", "id": "label_color", "label": "Color de etiquetas (campos)", "info": "Vacío = usa el color de texto principal." },
+    { "type": "select", "id": "heading_weight", "label": "Grosor de los títulos", "default": "800", "options": [
+      { "value": "700", "label": "Semi-negrita" },
+      { "value": "800", "label": "Negrita" },
+      { "value": "900", "label": "Extra negrita" }
+    ]},
+    { "type": "range", "id": "corner_radius", "label": "Radio de esquinas (popup)", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 20 },
+    { "type": "select", "id": "density", "label": "Espaciado", "default": "standard", "options": [
+      { "value": "compact", "label": "Compacto" },
+      { "value": "standard", "label": "Normal" },
+      { "value": "relaxed", "label": "Amplio" }
+    ]},
+
+    { "type": "header", "content": "Estilo del botón que abre el popup" },
+    { "type": "select", "id": "button_style", "label": "Relleno", "default": "solid", "options": [
+      { "value": "solid", "label": "Sólido" },
+      { "value": "soft", "label": "Suave" },
+      { "value": "outline", "label": "Contorno" }
+    ]},
+    { "type": "select", "id": "button_size", "label": "Tamaño", "default": "lg", "options": [
+      { "value": "md", "label": "Normal" },
+      { "value": "lg", "label": "Grande" }
+    ]},
+
+    { "type": "header", "content": "Animación" },
+    { "type": "checkbox", "id": "enable_animations", "label": "Activar animaciones", "default": true },
+    { "type": "select", "id": "entrance_style", "label": "Entrada del popup", "default": "slide-up", "options": [
+      { "value": "fade", "label": "Aparecer (fade)" },
+      { "value": "slide-up", "label": "Deslizar hacia arriba" },
+      { "value": "zoom", "label": "Acercamiento (zoom)" }
+    ]},
+    { "type": "select", "id": "animation_speed", "label": "Velocidad", "default": "normal", "options": [
+      { "value": "rapida", "label": "Rápida" },
+      { "value": "normal", "label": "Normal" },
+      { "value": "lenta", "label": "Lenta" }
+    ]},
+    { "type": "checkbox", "id": "enable_hover_fx", "label": "Micro-interacciones al pasar mouse", "default": true },
+
+    { "type": "header", "content": "Textos generales del formulario" },
+    { "type": "text", "id": "submitting_text", "label": "Texto mientras se envía", "default": "Enviando tu pedido…" },
+    { "type": "text", "id": "success_title", "label": "Título de éxito", "default": "¡Pedido confirmado!" },
+    { "type": "text", "id": "success_body", "label": "Mensaje de éxito", "default": "Te contactaremos por WhatsApp para coordinar la entrega. Pagas cuando lo recibas." },
+    { "type": "range", "id": "success_size", "label": "Tamaño del texto de éxito", "info": "Tamaño del título; el mensaje y el N° de pedido se ajustan en proporción.", "min": 16, "max": 40, "step": 1, "unit": "px", "default": 30 },
+    { "type": "text", "id": "error_generic_text", "label": "Mensaje de error genérico", "default": "No pudimos enviar tu pedido. Intenta de nuevo." },
+    { "type": "range", "id": "notice_size", "label": "Tamaño del texto de aviso/error", "min": 12, "max": 24, "step": 1, "unit": "px", "default": 15 },
+    { "type": "text", "id": "close_label", "label": "Texto accesible de cerrar", "default": "Cerrar" }
+  ],
+  "blocks": [
+    {
+      "type": "title",
+      "name": "Título",
+      "settings": [
+        { "type": "text", "id": "heading", "label": "Título", "default": "Completa tus datos y paga al recibir" },
+        { "type": "range", "id": "title_size", "label": "Tamaño del título", "min": 16, "max": 32, "step": 1, "unit": "px", "default": 21 },
+        { "type": "color", "id": "title_color", "label": "Color del título" },
+        { "type": "text", "id": "subheading", "label": "Subtítulo (opcional)" },
+        { "type": "range", "id": "subtitle_size", "label": "Tamaño del subtítulo", "min": 12, "max": 22, "step": 1, "unit": "px", "default": 15 },
+        { "type": "color", "id": "subtitle_color", "label": "Color del subtítulo" },
+        { "type": "checkbox", "id": "show_product_thumb", "label": "Mostrar foto del producto", "default": true },
+        { "type": "select", "id": "align", "label": "Alineación", "default": "left", "options": [
+          { "value": "left", "label": "Izquierda" },
+          { "value": "center", "label": "Centro" }
+        ]}
+      ]
+    },
+    {
+      "type": "offers",
+      "name": "Ofertas por cantidad",
+      "settings": [
+        { "type": "text", "id": "offers_title", "label": "Título de la sección", "default": "Elige tu combo" },
+        { "type": "checkbox", "id": "offers_title_enabled", "label": "Mostrar título", "default": false, "info": "Apagado por defecto: solía solaparse con las ofertas." },
+        { "type": "range", "id": "offers_title_size", "label": "Tamaño del título de sección", "min": 10, "max": 20, "step": 1, "unit": "px", "default": 13 },
+        { "type": "color", "id": "offers_title_color", "label": "Color del título de sección" },
+        { "type": "checkbox", "id": "show_compare_at", "label": "Mostrar precio tachado", "default": true },
+        { "type": "color", "id": "offer_bg", "label": "Fondo de cada oferta", "info": "Vacío = usa el fondo del popup." },
+        { "type": "color", "id": "offer_border_color", "label": "Borde de cada oferta", "info": "Vacío = usa el color de bordes." },
+        { "type": "range", "id": "offer_radius", "label": "Radio de esquinas", "min": 0, "max": 28, "step": 2, "unit": "px", "default": 14 },
+        { "type": "select", "id": "badge_style", "label": "Estilo de la insignia", "default": "pill", "options": [
+          { "value": "pill", "label": "Píldora" },
+          { "value": "ribbon", "label": "Cinta" },
+          { "value": "starburst", "label": "Estrella" }
+        ]},
+        { "type": "color", "id": "badge_text_color", "label": "Color del texto de la cinta", "default": "#FFFFFF" },
+        { "type": "range", "id": "badge_text_size", "label": "Tamaño del texto de la cinta", "min": 9, "max": 18, "step": 1, "unit": "px", "default": 12 },
+        { "type": "select", "id": "badge_anim", "label": "Animación de la cinta", "default": "none", "options": [
+          { "value": "none", "label": "Ninguna" },
+          { "value": "pulse", "label": "Pulso" },
+          { "value": "shine", "label": "Brillo" }
+        ]},
+        { "type": "checkbox", "id": "offer_anim_enabled", "label": "Animar selección", "default": true },
+
+        { "type": "header", "content": "Textos y colores de las ofertas" },
+        { "type": "checkbox", "id": "show_per_unit", "label": "Mostrar precio por unidad (\"$X c/u\")", "default": true },
+        { "type": "range", "id": "offer_name_size", "label": "Tamaño: nombre de la oferta", "min": 12, "max": 26, "step": 1, "unit": "px", "default": 17 },
+        { "type": "color", "id": "offer_name_color", "label": "Color: nombre de la oferta" },
+        { "type": "range", "id": "offer_price_size", "label": "Tamaño: precio total", "min": 14, "max": 30, "step": 1, "unit": "px", "default": 20 },
+        { "type": "color", "id": "offer_price_color", "label": "Color: precio total" },
+        { "type": "range", "id": "offer_per_unit_size", "label": "Tamaño: precio por unidad", "min": 10, "max": 20, "step": 1, "unit": "px", "default": 13 },
+        { "type": "color", "id": "offer_per_unit_color", "label": "Color: precio por unidad" },
+        { "type": "range", "id": "note_size", "label": "Tamaño: texto de refuerzo", "min": 10, "max": 20, "step": 1, "unit": "px", "default": 12 },
+        { "type": "color", "id": "note_bg", "label": "Fondo: insignia de refuerzo", "info": "Vacío = usa el color de marca." },
+        { "type": "color", "id": "note_color", "label": "Color: insignia de refuerzo", "default": "#FFFFFF" },
+
+        { "type": "header", "content": "Oferta 1" },
+        { "type": "checkbox", "id": "offer1_enabled", "label": "Activar", "default": true },
+        { "type": "range", "id": "offer1_units", "label": "Unidades", "min": 1, "max": 10, "step": 1, "default": 1 },
+        { "type": "text", "id": "offer1_label", "label": "Etiqueta", "default": "1 unidad" },
+        { "type": "select", "id": "offer1_discount_type", "label": "Tipo de descuento", "default": "percent", "options": [
+          { "value": "percent", "label": "Porcentaje (%)" },
+          { "value": "fixed_amount", "label": "Monto fijo a restar ($)" },
+          { "value": "fixed_price", "label": "Precio final fijo ($)" }
+        ]},
+        { "type": "range", "id": "offer1_discount", "label": "Descuento (%)", "min": 0, "max": 70, "step": 1, "unit": "%", "default": 0 },
+        { "type": "number", "id": "offer1_fixed_price", "label": "Valor ($)", "info": "Según el tipo elegido arriba: con \"Monto fijo a restar\" es lo que se DESCUENTA del precio; con \"Precio final fijo\" es el PRECIO YA CON DESCUENTO." },
+        { "type": "text", "id": "offer1_badge", "label": "Insignia" },
+        { "type": "checkbox", "id": "offer1_default", "label": "Preseleccionada", "default": false },
+        { "type": "text", "id": "offer1_note", "label": "Texto de refuerzo" },
+        { "type": "text", "id": "offer1_image_url", "label": "Imagen (URL, opcional)" },
+
+        { "type": "header", "content": "Oferta 2" },
+        { "type": "checkbox", "id": "offer2_enabled", "label": "Activar", "default": true },
+        { "type": "range", "id": "offer2_units", "label": "Unidades", "min": 1, "max": 10, "step": 1, "default": 2 },
+        { "type": "text", "id": "offer2_label", "label": "Etiqueta", "default": "2 unidades" },
+        { "type": "select", "id": "offer2_discount_type", "label": "Tipo de descuento", "default": "percent", "options": [
+          { "value": "percent", "label": "Porcentaje (%)" },
+          { "value": "fixed_amount", "label": "Monto fijo a restar ($)" },
+          { "value": "fixed_price", "label": "Precio final fijo ($)" }
+        ]},
+        { "type": "range", "id": "offer2_discount", "label": "Descuento (%)", "min": 0, "max": 70, "step": 1, "unit": "%", "default": 10 },
+        { "type": "number", "id": "offer2_fixed_price", "label": "Valor ($)", "info": "Según el tipo elegido arriba: con \"Monto fijo a restar\" es lo que se DESCUENTA del precio; con \"Precio final fijo\" es el PRECIO YA CON DESCUENTO." },
+        { "type": "text", "id": "offer2_badge", "label": "Insignia", "default": "MÁS VENDIDO" },
+        { "type": "checkbox", "id": "offer2_default", "label": "Preseleccionada", "default": true },
+        { "type": "text", "id": "offer2_note", "label": "Texto de refuerzo" },
+        { "type": "text", "id": "offer2_image_url", "label": "Imagen (URL, opcional)" },
+
+        { "type": "header", "content": "Oferta 3" },
+        { "type": "checkbox", "id": "offer3_enabled", "label": "Activar", "default": true },
+        { "type": "range", "id": "offer3_units", "label": "Unidades", "min": 1, "max": 10, "step": 1, "default": 3 },
+        { "type": "text", "id": "offer3_label", "label": "Etiqueta", "default": "3 unidades" },
+        { "type": "select", "id": "offer3_discount_type", "label": "Tipo de descuento", "default": "percent", "options": [
+          { "value": "percent", "label": "Porcentaje (%)" },
+          { "value": "fixed_amount", "label": "Monto fijo a restar ($)" },
+          { "value": "fixed_price", "label": "Precio final fijo ($)" }
+        ]},
+        { "type": "range", "id": "offer3_discount", "label": "Descuento (%)", "min": 0, "max": 70, "step": 1, "unit": "%", "default": 15 },
+        { "type": "number", "id": "offer3_fixed_price", "label": "Valor ($)", "info": "Según el tipo elegido arriba: con \"Monto fijo a restar\" es lo que se DESCUENTA del precio; con \"Precio final fijo\" es el PRECIO YA CON DESCUENTO." },
+        { "type": "text", "id": "offer3_badge", "label": "Insignia", "default": "MEJOR PRECIO" },
+        { "type": "checkbox", "id": "offer3_default", "label": "Preseleccionada", "default": false },
+        { "type": "text", "id": "offer3_note", "label": "Texto de refuerzo" },
+        { "type": "text", "id": "offer3_image_url", "label": "Imagen (URL, opcional)" },
+
+        { "type": "header", "content": "Oferta 4 (opcional)" },
+        { "type": "checkbox", "id": "offer4_enabled", "label": "Activar", "default": false },
+        { "type": "range", "id": "offer4_units", "label": "Unidades", "min": 1, "max": 10, "step": 1, "default": 4 },
+        { "type": "text", "id": "offer4_label", "label": "Etiqueta", "default": "4 unidades" },
+        { "type": "select", "id": "offer4_discount_type", "label": "Tipo de descuento", "default": "percent", "options": [
+          { "value": "percent", "label": "Porcentaje (%)" },
+          { "value": "fixed_amount", "label": "Monto fijo a restar ($)" },
+          { "value": "fixed_price", "label": "Precio final fijo ($)" }
+        ]},
+        { "type": "range", "id": "offer4_discount", "label": "Descuento (%)", "min": 0, "max": 70, "step": 1, "unit": "%", "default": 20 },
+        { "type": "number", "id": "offer4_fixed_price", "label": "Valor ($)", "info": "Según el tipo elegido arriba: con \"Monto fijo a restar\" es lo que se DESCUENTA del precio; con \"Precio final fijo\" es el PRECIO YA CON DESCUENTO." },
+        { "type": "text", "id": "offer4_badge", "label": "Insignia" },
+        { "type": "checkbox", "id": "offer4_default", "label": "Preseleccionada", "default": false },
+        { "type": "text", "id": "offer4_note", "label": "Texto de refuerzo" },
+        { "type": "text", "id": "offer4_image_url", "label": "Imagen (URL, opcional)" }
+      ]
+    },
+    {
+      "type": "field_name",
+      "name": "Campo: Nombre",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Etiqueta", "default": "Nombre completo" },
+        { "type": "text", "id": "placeholder", "label": "Placeholder", "default": "Ej: María González" },
+        { "type": "checkbox", "id": "required", "label": "Obligatorio", "default": true, "info": "El backend siempre exige este dato." }
+      ]
+    },
+    {
+      "type": "field_lastname",
+      "name": "Campo: Apellido",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Etiqueta", "default": "Apellido" },
+        { "type": "text", "id": "placeholder", "label": "Placeholder", "default": "Ej: Gómez" },
+        { "type": "checkbox", "id": "required", "label": "Obligatorio", "default": false }
+      ]
+    },
+    {
+      "type": "field_phone",
+      "name": "Campo: Celular",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Etiqueta", "default": "Celular (WhatsApp)" },
+        { "type": "text", "id": "placeholder", "label": "Placeholder", "default": "300 123 4567" },
+        { "type": "checkbox", "id": "required", "label": "Obligatorio", "default": true, "info": "El backend siempre exige este dato." }
+      ]
+    },
+    {
+      "type": "field_variant",
+      "name": "Campo: Variante",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Etiqueta", "default": "Elige tu variante" },
+        { "type": "checkbox", "id": "per_unit", "label": "Permitir elegir varias variantes", "default": true, "info": "Si la oferta elegida es de 2 o más unidades, muestra un campo compacto de \"cantidad por variante\" (ej: 1 roja + 1 azul) en vez de un solo selector para todas las unidades." },
+        { "type": "select", "id": "contour", "label": "Contorno", "default": "round", "options": [
+          { "value": "rect", "label": "Rectangular" },
+          { "value": "round", "label": "Redondeado" },
+          { "value": "oval", "label": "Ovalado" }
+        ]},
+        { "type": "range", "id": "shadow", "label": "Sombra", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 0 },
+        { "type": "range", "id": "font_size", "label": "Tamaño del texto", "min": 12, "max": 20, "step": 1, "unit": "px", "default": 15 },
+        { "type": "color", "id": "text_color", "label": "Color del texto" },
+        { "type": "paragraph", "content": "Solo aparece si el producto tiene MÁS de una variante. Con una sola, este campo se oculta solo. Si la oferta es de 2+ unidades y \"Permitir elegir varias variantes\" está activo, aparece un campo compacto: por defecto UNA fila (todas las unidades del mismo color), con la opción \"+ Agregar otro color\" para repartir con steppers +/-." }
+      ]
+    },
+    {
+      "type": "field_location",
+      "name": "Campo: Ubicación",
+      "settings": [
+        { "type": "text", "id": "label_department", "label": "Etiqueta departamento", "default": "Departamento" },
+        { "type": "text", "id": "placeholder_department", "label": "Placeholder departamento", "default": "Selecciona tu departamento" },
+        { "type": "text", "id": "label_city", "label": "Etiqueta ciudad", "default": "Ciudad" },
+        { "type": "text", "id": "placeholder_city", "label": "Placeholder ciudad", "default": "Selecciona tu ciudad" },
+        { "type": "paragraph", "content": "El backend siempre exige departamento y ciudad." }
+      ]
+    },
+    {
+      "type": "field_address",
+      "name": "Campo: Dirección",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Etiqueta", "default": "Dirección de entrega" },
+        { "type": "text", "id": "placeholder", "label": "Placeholder", "default": "Calle 12 # 34-56, barrio, apto" },
+        { "type": "checkbox", "id": "required", "label": "Obligatorio", "default": true, "info": "El backend siempre exige este dato." }
+      ]
+    },
+    {
+      "type": "field_extra",
+      "name": "Campo: Datos extra",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Etiqueta", "default": "Datos adicionales" },
+        { "type": "text", "id": "placeholder", "label": "Placeholder", "default": "Torre, apto, punto de referencia…" },
+        { "type": "checkbox", "id": "required", "label": "Obligatorio", "default": false },
+        { "type": "paragraph", "content": "Va a Dropi como \"Datos Complementarios\" y también en la nota del pedido." }
+      ]
+    },
+    {
+      "type": "field_email",
+      "name": "Campo: Correo (opcional)",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Etiqueta", "default": "Correo electrónico" },
+        { "type": "text", "id": "placeholder", "label": "Placeholder", "default": "tucorreo@ejemplo.com" },
+        { "type": "checkbox", "id": "required", "label": "Obligatorio", "default": false }
+      ]
+    },
+    {
+      "type": "image",
+      "name": "Imagen",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Imagen (desde archivos)" },
+        { "type": "text", "id": "image_url", "label": "…o URL de imagen", "info": "Se usa solo si no eliges una imagen arriba." },
+        { "type": "text", "id": "alt", "label": "Texto alternativo" },
+        { "type": "range", "id": "radius", "label": "Radio de esquinas", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 14 },
+        { "type": "range", "id": "max_width", "label": "Ancho máximo", "min": 20, "max": 100, "step": 5, "unit": "%", "default": 100 }
+      ]
+    },
+    {
+      "type": "custom_text",
+      "name": "Texto personalizado",
+      "settings": [
+        { "type": "text", "id": "heading", "label": "Título (opcional)" },
+        { "type": "textarea", "id": "body", "label": "Texto", "default": "Escribe aquí tu mensaje." },
+        { "type": "color", "id": "text_color", "label": "Color del texto" },
+        { "type": "select", "id": "align", "label": "Alineación", "default": "left", "options": [
+          { "value": "left", "label": "Izquierda" },
+          { "value": "center", "label": "Centro" }
+        ]},
+        { "type": "range", "id": "size", "label": "Tamaño de la letra", "min": 12, "max": 30, "step": 1, "unit": "px", "default": 15 }
+      ]
+    },
+    {
+      "type": "cod_button",
+      "name": "Botón: Contra entrega",
+      "settings": [
+        { "type": "text", "id": "text", "label": "Texto del botón", "default": "Pedir con pago contra entrega" },
+        { "type": "text", "id": "subtitle", "label": "Subtítulo (opcional)", "info": "Segunda línea, más pequeña. Puedes usar {order_total} o {order_subtotal}." },
+        { "type": "text", "id": "helper_text", "label": "Texto de ayuda debajo", "default": "Pagas en efectivo o transferencia al recibir" },
+        { "type": "select", "id": "icon", "label": "Ícono", "default": "cart", "options": [
+          { "value": "none", "label": "Ninguno" },
+          { "value": "cart", "label": "Carrito" },
+          { "value": "card", "label": "Tarjeta" },
+          { "value": "whatsapp", "label": "WhatsApp" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "color", "id": "bg", "label": "Fondo", "default": "#E8912D" },
+        { "type": "color", "id": "text_color", "label": "Texto", "default": "#1A1400" },
+        { "type": "color", "id": "border_color", "label": "Borde", "default": "#E8912D" },
+        { "type": "range", "id": "border_width", "label": "Grosor del borde", "min": 0, "max": 6, "step": 1, "unit": "px", "default": 0 },
+        { "type": "range", "id": "radius", "label": "Radio de esquinas", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 14 },
+        { "type": "range", "id": "font_size", "label": "Tamaño del texto", "min": 14, "max": 22, "step": 1, "unit": "px", "default": 18 },
+        { "type": "range", "id": "shadow", "label": "Sombra", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 20 },
+        { "type": "select", "id": "anim_style", "label": "Animación", "default": "press", "options": [
+          { "value": "none", "label": "Ninguna" },
+          { "value": "press", "label": "Al presionar" },
+          { "value": "shine", "label": "Brillo" },
+          { "value": "pulse", "label": "Pulso" },
+          { "value": "shake", "label": "Sacudida" }
+        ]}
+      ]
+    },
+    {
+      "type": "prepaid_button",
+      "name": "Botón: Pago anticipado",
+      "settings": [
+        { "type": "text", "id": "text", "label": "Texto del botón", "default": "Prefiero pagar en línea ahora" },
+        { "type": "text", "id": "subtitle", "label": "Subtítulo (opcional)", "info": "Segunda línea, más pequeña. Puedes usar {order_total} o {order_subtotal}." },
+        { "type": "text", "id": "divider_text", "label": "Texto del separador", "default": "o", "info": "Ya no se muestra en el popup; se deja por compatibilidad." },
+        { "type": "text", "id": "helper_text", "label": "Texto de ayuda debajo" },
+        { "type": "select", "id": "icon", "label": "Ícono", "default": "card", "options": [
+          { "value": "none", "label": "Ninguno" },
+          { "value": "card", "label": "Tarjeta" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "select", "id": "fill_style", "label": "Relleno", "default": "outline", "options": [
+          { "value": "outline", "label": "Contorno" },
+          { "value": "solid", "label": "Sólido" }
+        ]},
+        { "type": "color", "id": "bg", "label": "Fondo (si es sólido)", "default": "#2E6E5A" },
+        { "type": "color", "id": "text_color", "label": "Texto / borde", "default": "#2E6E5A" },
+        { "type": "color", "id": "border_color", "label": "Color del borde", "default": "#2E6E5A" },
+        { "type": "range", "id": "border_width", "label": "Grosor del borde", "min": 0, "max": 6, "step": 1, "unit": "px", "default": 2 },
+        { "type": "range", "id": "radius", "label": "Radio de esquinas", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 14 },
+        { "type": "range", "id": "font_size", "label": "Tamaño del texto", "min": 12, "max": 20, "step": 1, "unit": "px", "default": 15 },
+        { "type": "range", "id": "shadow", "label": "Sombra", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 0 },
+        { "type": "select", "id": "anim_style", "label": "Animación", "default": "press", "options": [
+          { "value": "none", "label": "Ninguna" },
+          { "value": "press", "label": "Al presionar" },
+          { "value": "shine", "label": "Brillo" },
+          { "value": "shake", "label": "Sacudida" }
+        ]}
+      ]
+    },
+    {
+      "type": "upsell",
+      "name": "Producto extra (upsell)",
+      "settings": [
+        { "type": "product", "id": "product", "label": "Producto a ofrecer" },
+        { "type": "text", "id": "variant_id", "label": "ID de variante (para productos fuera del canal)", "info": "Solo si el producto NO está publicado en \"Tienda online\" (kits ocultos): pega aquí el ID numérico de esa variante. Con esto el extra funciona igual aunque el producto de arriba no se pueda leer." },
+        { "type": "text", "id": "label_override", "label": "Nombre a mostrar (opcional)" },
+        { "type": "checkbox", "id": "visible_to_customer", "label": "Visible para el cliente", "default": true, "info": "Si lo apagas, este extra SIEMPRE se agrega al pedido (sirve para armar kits) pero el cliente NO lo ve ni lo puede quitar. Para que vaya gratis: tipo de descuento \"Precio final fijo\" con el valor en 0." },
+        { "type": "checkbox", "id": "show_price", "label": "Mostrar precio", "default": true },
+        { "type": "checkbox", "id": "show_image", "label": "Mostrar foto", "default": true },
+        { "type": "text", "id": "image_url", "label": "…o URL de imagen", "info": "Reemplaza la foto del producto si la pones." },
+        { "type": "select", "id": "discount_type", "label": "Tipo de descuento", "default": "percent", "options": [
+          { "value": "percent", "label": "Porcentaje (%)" },
+          { "value": "fixed_amount", "label": "Monto fijo a restar ($)" },
+          { "value": "fixed_price", "label": "Precio final fijo ($)" }
+        ]},
+        { "type": "range", "id": "discount", "label": "Descuento (%)", "min": 0, "max": 70, "step": 1, "unit": "%", "default": 0 },
+        { "type": "number", "id": "fixed_price", "label": "Valor ($)", "info": "Según el tipo elegido arriba: con \"Monto fijo a restar\" es lo que se DESCUENTA del precio; con \"Precio final fijo\" es el PRECIO YA CON DESCUENTO. Para un extra gratis: \"Precio final fijo\" en 0." },
+        { "type": "checkbox", "id": "default_checked", "label": "Marcado por defecto", "default": false },
+        { "type": "color", "id": "border_color", "label": "Color del borde" },
+        { "type": "range", "id": "radius", "label": "Radio de esquinas", "min": 0, "max": 28, "step": 2, "unit": "px", "default": 14 }
+      ]
+    },
+    {
+      "type": "guarantee",
+      "name": "Garantía / confianza",
+      "settings": [
+        { "type": "text", "id": "text", "label": "Texto", "default": "Envío gratis · Pagas al recibir · Garantía 60 días" },
+        { "type": "select", "id": "icon", "label": "Ícono", "default": "shield", "options": [
+          { "value": "shield", "label": "Escudo" },
+          { "value": "truck", "label": "Camión" },
+          { "value": "lock", "label": "Candado" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "select", "id": "style", "label": "Estilo", "default": "classic", "options": [
+          { "value": "classic", "label": "Clásico" },
+          { "value": "badge", "label": "Insignia" }
+        ]},
+        { "type": "range", "id": "text_size", "label": "Tamaño del texto", "min": 11, "max": 22, "step": 1, "unit": "px", "default": 14 }
+      ]
+    },
+    {
+      "type": "trust_text",
+      "name": "Confianza / sellos",
+      "settings": [
+        { "type": "select", "id": "style", "label": "Estilo", "default": "plain", "options": [
+          { "value": "plain", "label": "Texto simple" },
+          { "value": "badges", "label": "Sellos con ícono" }
+        ]},
+        { "type": "text", "id": "text", "label": "Texto (estilo simple)", "default": "Compra 100% segura · Datos protegidos" },
+        { "type": "select", "id": "align", "label": "Alineación", "default": "center", "options": [
+          { "value": "left", "label": "Izquierda" },
+          { "value": "center", "label": "Centro" }
+        ]},
+        { "type": "header", "content": "Sellos (estilo \"badges\")" },
+        { "type": "select", "id": "item1_icon", "label": "Sello 1: ícono", "default": "lock", "options": [
+          { "value": "none", "label": "Ninguno" },
+          { "value": "shield", "label": "Escudo" },
+          { "value": "truck", "label": "Camión" },
+          { "value": "lock", "label": "Candado" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "text", "id": "item1_text", "label": "Sello 1: texto", "default": "Compra segura" },
+        { "type": "select", "id": "item2_icon", "label": "Sello 2: ícono", "default": "truck", "options": [
+          { "value": "none", "label": "Ninguno" },
+          { "value": "shield", "label": "Escudo" },
+          { "value": "truck", "label": "Camión" },
+          { "value": "lock", "label": "Candado" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "text", "id": "item2_text", "label": "Sello 2: texto", "default": "Envío rápido" },
+        { "type": "select", "id": "item3_icon", "label": "Sello 3: ícono", "default": "shield", "options": [
+          { "value": "none", "label": "Ninguno" },
+          { "value": "shield", "label": "Escudo" },
+          { "value": "truck", "label": "Camión" },
+          { "value": "lock", "label": "Candado" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "text", "id": "item3_text", "label": "Sello 3: texto", "default": "Garantía 60 días" }
+      ]
+    },
+    {
+      "type": "scarcity",
+      "name": "Urgencia (temporizador)",
+      "settings": [
+        { "type": "select", "id": "mode", "label": "Modo", "default": "none", "options": [
+          { "value": "none", "label": "Desactivado" },
+          { "value": "timer", "label": "Cuenta regresiva" }
+        ]},
+        { "type": "range", "id": "timer_minutes", "label": "Minutos", "min": 5, "max": 180, "step": 5, "default": 15 },
+        { "type": "text", "id": "text_template", "label": "Texto (usa {time})", "default": "Esta oferta termina en {time}" },
+        { "type": "select", "id": "style", "label": "Estilo", "default": "bar", "options": [
+          { "value": "bar", "label": "Barra" },
+          { "value": "pill", "label": "Píldora" }
+        ]},
+        { "type": "color", "id": "bg_color", "label": "Fondo" },
+        { "type": "color", "id": "text_color", "label": "Texto" },
+        { "type": "checkbox", "id": "show_icon", "label": "Mostrar ícono de reloj", "default": true }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Botón Contra Entrega",
+      "blocks": [
+        { "type": "title" },
+        { "type": "offers" },
+        { "type": "field_variant" },
+        { "type": "field_name" },
+        { "type": "field_phone" },
+        { "type": "field_location" },
+        { "type": "field_address" },
+        { "type": "cod_button" },
+        { "type": "prepaid_button" },
+        { "type": "guarantee" },
+        { "type": "trust_text" }
+      ]
+    }
+  ]
+}
+{% endschema %}

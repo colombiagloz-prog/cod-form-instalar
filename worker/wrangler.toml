@@ -1,0 +1,40 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  CONFIGURACIÓN DEL FORMULARIO CONTRA ENTREGA (COD)
+#  Llena las 4 casillas marcadas con  <<<  PON AQUÍ ...  >>>.  Lo demás ya viene
+#  listo. Las claves secretas te las pide el botón al instalar (van cifradas).
+# ═══════════════════════════════════════════════════════════════════════════
+
+name = "cod-form"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# CASILLA 1 — Dominio .myshopify.com de tu tienda (termina en .myshopify.com).
+SHOPIFY_STORE = "<<< PON AQUÍ TU-TIENDA.myshopify.com >>>"
+# CASILLA 2 — Client ID de tu app de Shopify (NO es secreto).
+SHOPIFY_CLIENT_ID = "<<< PON AQUÍ TU CLIENT ID >>>"
+# CASILLA 3 — Dominios que pueden usar el formulario (coma-separados).
+ALLOWED_ORIGINS = "<<< PON AQUÍ https://TU-TIENDA.myshopify.com >>>"
+# CASILLA 4 — Tu llave de licencia (te la da quien te vendió el producto).
+LICENSE_KEY = "<<< PON AQUÍ TU LLAVE DE LICENCIA >>>"
+
+# ── Ya vienen listos. Normalmente NO se tocan. ─────────────────────────────
+SHOPIFY_API_VERSION = "2025-01"
+META_API_VERSION = "v21.0"
+TIKTOK_API_VERSION = "v1.3"
+DRY_RUN = "false"
+COD_GATEWAY_NAME = "Cash on Delivery (COD)"
+ORDER_LIMIT_MAX = "0"
+ORDER_LIMIT_WINDOW_MIN = "60"
+RATE_LIMIT_PER_MIN = "40"
+LEAD_WINDOW_MIN = "15"
+
+# Almacén de datos: el botón "Deploy to Cloudflare" lo crea automáticamente
+# (el id vacío es a propósito: Cloudflare lo rellena solo).
+[[kv_namespaces]]
+binding = "GLOZ_KV"
+id = ""
+
+# Revisa pedidos abandonados cada 5 min.
+[triggers]
+crons = ["*/5 * * * *"]

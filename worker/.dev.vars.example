@@ -1,0 +1,17 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  CLAVES SECRETAS
+#  El botón "Deploy to Cloudflare" te pide estos valores al instalar y los
+#  guarda CIFRADOS. No tienes que tocar este archivo.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# OBLIGATORIO — El "Client Secret" de tu app de Shopify (Dev Dashboard). Secreto.
+SHOPIFY_CLIENT_SECRET=
+
+# RECOMENDADO — Contraseña (la inventas tú) para entrar a tu panel de bloqueos /admin.
+ADMIN_SECRET=
+
+# OPCIONAL — Token de la Conversions API de Meta. Vacío = no se usa.
+META_CAPI_TOKEN=
+
+# OPCIONAL — Token de la Events API de TikTok. Vacío = no se usa.
+TIKTOK_ACCESS_TOKEN=

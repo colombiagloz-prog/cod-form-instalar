@@ -1,0 +1,494 @@
+/* ============================================================================
+   Botón Contra Entrega GLOZ — botón + popup (modal). Reemplazo de Releasit.
+   TODO lo visual sale de variables CSS que fija el JS a partir de los settings
+   de la sección (Editor de temas). Móvil = bottom-sheet, escritorio = centrado.
+   Respeta prefers-reduced-motion y foco visible (accesibilidad).
+   ============================================================================ */
+
+.gloz-cod-block {
+  --gloz-trigger-bg: #e8912d;
+  --gloz-trigger-text: #1a1400;
+  --gloz-radius: 20px;
+  --gloz-font-scale: 1;
+  --gloz-space-scale: 1;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 12px 0;
+  background: var(--gloz-trigger-section-bg, transparent);
+  border-radius: var(--gloz-trigger-radius, 20px);
+  padding: 8px;
+}
+
+/* ── Botón que abre el popup (en la página de producto) ──────────────────── */
+.gloz-cod-trigger {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: var(--gloz-trigger-font, 17px);
+  letter-spacing: 0.01em;
+  color: var(--gloz-trigger-text);
+  background: var(--gloz-trigger-bg);
+  padding: 16px 20px;
+  border-radius: var(--gloz-trigger-radius, var(--gloz-radius));
+  border: var(--gloz-trigger-border-w, 0px) solid var(--gloz-trigger-border, transparent);
+  box-shadow: var(--gloz-trigger-shadow, 0 8px 22px rgba(0, 0, 0, 0.14));
+  transition: transform 0.14s ease, filter 0.2s ease, box-shadow 0.2s ease;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.15;
+}
+.gloz-trig-textcol { display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 1px; }
+.gloz-trig-subtext { font-size: 0.72em; font-weight: 600; opacity: 0.85; }
+.gloz-cod-trigger--md { min-height: 48px; padding: 12px 18px; font-size: calc(0.96rem * var(--gloz-font-scale)); }
+.gloz-cod-trigger--soft { background: color-mix(in srgb, var(--gloz-trigger-bg) 18%, #fff); color: var(--gloz-trigger-bg); box-shadow: none; }
+.gloz-cod-trigger--outline { background: transparent; color: var(--gloz-trigger-bg); box-shadow: none; border: 2px solid var(--gloz-trigger-bg); }
+.gloz-cod-trigger:hover { filter: brightness(1.05); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); }
+.gloz-cod-trigger--soft:hover, .gloz-cod-trigger--outline:hover { filter: none; box-shadow: none; background: color-mix(in srgb, var(--gloz-trigger-bg) 10%, transparent); }
+.gloz-cod-trigger:active { transform: translateY(1px); }
+.gloz-cod-trigger:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gloz-trigger-bg) 55%, transparent); }
+
+/* ── Overlay + modal ───────────────────────────────────────────────────────── */
+.gloz-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: none;
+  background: var(--gloz-overlay, rgba(15, 23, 20, 0.55));
+  -webkit-backdrop-filter: blur(var(--gloz-overlay-blur, 4px));
+  backdrop-filter: blur(var(--gloz-overlay-blur, 4px));
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity var(--gloz-anim-ms, 220ms) ease;
+}
+.gloz-modal-overlay.is-open { opacity: 1; }
+
+.gloz-modal {
+  --gp: var(--gloz-accent, #2e6e5a);
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 460px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--gloz-popup-bg, #fff);
+  color: var(--gloz-text, #17211d);
+  border-radius: var(--gloz-radius, 20px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  font-family: inherit;
+  font-size: calc(1rem * var(--gloz-font-scale, 1));
+  -webkit-overflow-scrolling: touch;
+}
+.gloz-modal.gloz-own-font { font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+.gloz-modal * , .gloz-modal *::before, .gloz-modal *::after { box-sizing: border-box; }
+
+/* Entradas del popup (elige el merchant): fade / slide-up (por defecto) / zoom */
+.gloz-anim-fade .gloz-modal { transform: none; transition: none; }
+.gloz-anim-slide-up .gloz-modal { transform: translateY(18px); transition: transform var(--gloz-anim-ms, 220ms) cubic-bezier(0.22, 1, 0.36, 1); }
+.gloz-anim-slide-up.is-open .gloz-modal { transform: translateY(0); }
+.gloz-anim-zoom .gloz-modal { transform: scale(0.9); transition: transform var(--gloz-anim-ms, 220ms) cubic-bezier(0.22, 1, 0.36, 1); }
+.gloz-anim-zoom.is-open .gloz-modal { transform: scale(1); }
+
+/* Bottom-sheet en móvil (siempre, sin importar el estilo de entrada elegido) */
+@media (max-width: 560px) {
+  /* En móvil el popup ocupa TODA la pantalla (sin espacio arriba). */
+  .gloz-modal-overlay { align-items: stretch; padding: 0; }
+  .gloz-modal {
+    max-width: 100%;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh; /* usa el alto real del viewport móvil (evita huecos por la barra del navegador) */
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  .gloz-anim-slide-up .gloz-modal, .gloz-anim-zoom .gloz-modal { transform: translateY(100%); }
+  .gloz-anim-slide-up.is-open .gloz-modal, .gloz-anim-zoom.is-open .gloz-modal { transform: translateY(0); }
+}
+
+/* ── Encabezado ─────────────────────────────────────────────────────────────── */
+.gloz-mhead {
+  position: sticky;
+  top: 0;
+  background: var(--gloz-popup-bg, #fff);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(18px * var(--gloz-space-scale, 1)) calc(18px * var(--gloz-space-scale, 1)) calc(14px * var(--gloz-space-scale, 1));
+  border-bottom: 1px solid var(--gloz-border, #e6e3da);
+  z-index: 2;
+}
+.gloz-mhead img { width: 52px; height: 52px; border-radius: calc(var(--gloz-radius, 20px) * 0.55); object-fit: cover; border: 1px solid var(--gloz-border, #e6e3da); flex: 0 0 auto; background: #f4f4f2; }
+.gloz-mhead .gloz-mtitle { flex: 1 1 auto; min-width: 0; }
+.gloz-mhead h3 { margin: 0; font-size: 1rem; font-weight: var(--gloz-heading-weight, 800); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gloz-mhead p { margin: 2px 0 0; font-size: 0.8rem; color: var(--gloz-muted, #5b6560); }
+.gloz-mclose {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: color-mix(in srgb, var(--gloz-text, #17211d) 6%, transparent);
+  color: var(--gloz-text, #17211d); cursor: pointer;
+  display: grid; place-items: center; transition: background 0.15s ease;
+}
+.gloz-no-hoverfx .gloz-mclose:hover { background: color-mix(in srgb, var(--gloz-text, #17211d) 6%, transparent); }
+.gloz-mclose:hover { background: color-mix(in srgb, var(--gloz-text, #17211d) 12%, transparent); }
+.gloz-mclose:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gp) 30%, transparent); }
+
+/* Encabezado oculto (show_header = false, por defecto): solo queda la X,
+   flotando arriba a la derecha, sin ocupar espacio ni línea divisoria. */
+.gloz-mhead--minimal {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  padding: 0; border-bottom: none; background: transparent; justify-content: flex-end;
+}
+.gloz-mhead--minimal .gloz-mclose { background: color-mix(in srgb, var(--gloz-text, #17211d) 8%, var(--gloz-popup-bg, #fff)); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.gloz-noheader .gloz-mbody { padding-top: calc(46px + 4px); }
+
+/* ── Cuerpo: grid de bloques en el ORDEN que definió el merchant ─────────────── */
+.gloz-mbody { padding: calc(16px * var(--gloz-space-scale, 1)) calc(18px * var(--gloz-space-scale, 1)) calc(20px * var(--gloz-space-scale, 1)); display: grid; gap: calc(16px * var(--gloz-space-scale, 1)); }
+.gloz-block { min-width: 0; }
+/* Upsell "fuera del canal" mientras se resuelve GET /variant-info (ver JS
+   resolveUpsellVariant): no debe dejar un hueco en el grid mientras carga. */
+.gloz-upsell-pending { display: none; }
+
+.gloz-align-left { text-align: left; }
+.gloz-align-center { text-align: center; }
+
+.gloz-title { margin: 0; font-size: calc(1.18rem * var(--gloz-font-scale, 1)); font-weight: var(--gloz-heading-weight, 800); line-height: 1.25; }
+.gloz-subtitle { margin: 4px 0 0; font-size: 0.9rem; color: var(--gloz-muted, #5b6560); }
+
+.gloz-sec-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gloz-muted, #5b6560); margin: 0 0 6px; }
+
+/* Ofertas — tarjetas "Opción C": cinta superior a todo el ancho (si hay
+   badge) + radio/nombre/nota/precio-por-unidad a la izquierda y
+   total/tachado a la derecha. La tarjeta (no el botón) lleva el borde y el
+   fondo, así la cinta queda perfectamente recortada a las esquinas. */
+.gloz-offers { display: grid; gap: 10px; }
+.gloz-offer-card {
+  position: relative; background: var(--gloz-offer-card-bg, var(--gloz-popup-bg, #fff));
+  border: 2px solid var(--gloz-border, #e6e3da); border-radius: calc(var(--gloz-radius, 20px) * 0.6);
+  overflow: hidden;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.18s ease, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gloz-offer-card:hover { border-color: var(--gp); }
+.gloz-no-hoverfx .gloz-offer-card:hover { border-color: var(--gloz-border, #e6e3da); }
+.gloz-no-hoverfx .gloz-offer-card.is-sel:hover { border-color: var(--gloz-offer-border, var(--gp)); }
+.gloz-offer-card.is-sel {
+  border-color: var(--gloz-offer-border, var(--gp));
+  background: var(--gloz-offer-bg, color-mix(in srgb, var(--gp) 6%, #fff));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+/* Selección animada AL TOCAR (no depende de hover) */
+.gloz-offer-card:not(.gloz-offer-card--noanim).is-sel { animation: gloz-pop 0.24s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes gloz-pop { 0% { transform: scale(0.99); } 60% { transform: scale(1.015); } 100% { transform: scale(1); } }
+
+/* Cinta (ribbon) superior a todo el ancho, en degradado con el color de marca
+   — compacta, tipo "Opción C" del mock aprobado. */
+.gloz-offer-ribbon {
+  display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%;
+  padding: 5px 10px; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--gloz-badge-text, #1a1400); line-height: 1.2;
+  background: linear-gradient(90deg, var(--gp), color-mix(in srgb, var(--gloz-badge-bg, #e8912d) 85%, var(--gp)));
+}
+.gloz-offer-ribbon svg { flex: 0 0 auto; }
+.gloz-badge-style--pill .gloz-offer-ribbon { border-radius: 0 0 12px 12px; padding: 5px 14px; }
+.gloz-badge-style--starburst .gloz-offer-ribbon { background: linear-gradient(90deg, var(--gloz-badge-bg, #e8912d), color-mix(in srgb, var(--gloz-badge-bg, #e8912d) 55%, #ff5d5d)); }
+
+/* Animación de la cinta/insignia (badge_anim): pulso o brillo, configurable
+   por bloque de ofertas. Respeta prefers-reduced-motion (ver media query). */
+.gloz-ribbon-anim-pulse { animation: gloz-pulse 2s ease-in-out infinite; }
+.gloz-ribbon-anim-shine { position: relative; overflow: hidden; }
+.gloz-ribbon-anim-shine::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  transform: skewX(-20deg); animation: gloz-shine 2.6s ease-in-out infinite;
+}
+
+.gloz-offer {
+  position: relative; display: flex; align-items: center; gap: 11px; width: 100%;
+  text-align: left; padding: 11px 13px; background: transparent; cursor: pointer;
+  border: none; font: inherit; color: inherit;
+}
+.gloz-offer:focus-visible { outline: none; box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--gp) 30%, transparent); }
+
+/* Radio de selección — círculo que se RELLENA por completo con un check
+   blanco adentro al seleccionar (no un punto pequeño dentro del anillo). */
+.gloz-radio {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--gloz-border, #e6e3da); display: grid; place-items: center;
+  background: transparent; transition: background 0.16s ease, border-color 0.16s ease;
+}
+.gloz-offer-card.is-sel .gloz-radio { border-color: var(--gloz-offer-border, var(--gp)); background: var(--gloz-offer-border, var(--gp)); }
+.gloz-radio::after {
+  content: ""; width: 10px; height: 6px; margin-top: -1px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) scale(0); transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gloz-offer-card.is-sel .gloz-radio::after { transform: rotate(-45deg) scale(1); }
+
+.gloz-offer-main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gloz-offer-namecol { min-width: 0; }
+.gloz-offer-name { font-weight: 700; font-size: 1rem; line-height: 1.2; }
+.gloz-offer-unit { font-size: 0.78rem; color: var(--gloz-muted, #5b6560); margin-top: 2px; }
+.gloz-offer-pricecol { flex: 0 0 auto; text-align: right; }
+.gloz-offer-total { display: block; font-weight: 800; color: var(--gp); font-size: 1.15rem; line-height: 1.15; }
+.gloz-offer-cmp { display: block; font-size: 0.78rem; color: var(--gloz-muted, #5b6560); text-decoration: line-through; margin-top: 1px; }
+.gloz-offer-img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; border: 1px solid var(--gloz-border, #e6e3da); flex: 0 0 auto; background: #f4f4f2; }
+
+/* Refuerzo (offer note) como INSIGNIA/chip resaltado, no texto plano — con
+   pulso sutil apto para móvil (respeta prefers-reduced-motion más abajo). */
+.gloz-offer-note {
+  display: inline-block; margin: 3px 0 1px; padding: 2px 9px;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.01em; line-height: 1.5;
+  color: var(--gloz-note-color, #fff); background: var(--gloz-note-bg, var(--gp));
+  border-radius: 999px; animation: gloz-note-pulse 2.4s ease-in-out infinite;
+}
+@keyframes gloz-note-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 0%, transparent); }
+  50% { transform: scale(1.04); }
+}
+
+/* Campos */
+.gloz-field { display: grid; gap: 5px; }
+.gloz-label { font-size: var(--gloz-label-size, 0.9rem); font-weight: 700; color: var(--gloz-label-color, inherit); }
+.gloz-label .req { color: var(--gloz-error, #dc2626); }
+.gloz-input, .gloz-select {
+  width: 100%; padding: 12px 13px; font-size: 16px; font-family: inherit; color: var(--gloz-text, #17211d);
+  background: var(--gloz-popup-bg, #fff); border: 1px solid var(--gloz-border, #e6e3da);
+  border-radius: var(--gloz-field-radius, calc(var(--gloz-radius, 20px) * 0.45));
+  box-shadow: 0 calc(var(--gloz-field-shadow, 0px) * 0.4) var(--gloz-field-shadow, 0px) rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.gloz-input:focus, .gloz-select:focus { outline: none; border-color: var(--gp); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gp) 20%, transparent); }
+.gloz-input.err, .gloz-select.err { border-color: var(--gloz-error, #dc2626); }
+.gloz-select {
+  appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235b6560' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center;
+}
+.gloz-select:disabled { opacity: 0.55; cursor: not-allowed; }
+.gloz-emsg { font-size: 0.76rem; color: var(--gloz-error, #dc2626); min-height: 0; }
+.gloz-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+@media (max-width: 400px) { .gloz-row2 { grid-template-columns: 1fr; } }
+.gloz-hp { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; overflow: hidden; }
+
+/* Campo de variante: modo "simple" (1 selector clásico, ver .gloz-variant-field
+   más arriba en .gloz-field) o modo "compact" — cuando la oferta elegida trae
+   2+ unidades y "per_unit" está activo — con filas de "variante + cantidad". */
+.gloz-variant-group { display: grid; gap: 4px; }
+.gloz-variant-field--in { animation: gloz-field-in 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes gloz-field-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Modo compacto: "cantidad por variante" ──────────────────────────────── */
+.gloz-vqty-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.gloz-vqty-title { font-size: var(--gloz-label-size, 0.9rem); font-weight: 700; color: var(--gloz-label-color, inherit); }
+.gloz-vqty-status { font-size: 0.76rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; white-space: nowrap; transition: color 0.15s ease, background 0.15s ease; }
+.gloz-vqty-status.is-pending { color: var(--gloz-muted, #5b6560); background: color-mix(in srgb, var(--gloz-muted, #5b6560) 12%, transparent); }
+.gloz-vqty-status.is-ok { color: var(--gp); background: color-mix(in srgb, var(--gp) 14%, transparent); }
+.gloz-vqty-status.is-error { color: var(--gloz-error, #dc2626); background: color-mix(in srgb, var(--gloz-error, #dc2626) 12%, transparent); }
+
+.gloz-vqty-rows { display: grid; gap: 8px; margin-top: 8px; }
+.gloz-vqty-row { display: flex; align-items: center; gap: 8px; transition: opacity 0.16s ease, transform 0.16s ease; }
+.gloz-vqty-row .gloz-vqty-select { flex: 1 1 auto; min-width: 0; }
+
+.gloz-vqty-stepper {
+  display: flex; align-items: center; flex: 0 0 auto;
+  border: 1px solid var(--gloz-border, #e6e3da); border-radius: 999px; overflow: hidden;
+}
+.gloz-vqty-btn {
+  width: 30px; height: 30px; border: none; background: transparent; cursor: pointer;
+  color: var(--gp); font-size: 1.05rem; font-weight: 800; line-height: 1;
+  display: grid; place-items: center; transition: background 0.15s ease;
+}
+.gloz-vqty-btn:hover { background: color-mix(in srgb, var(--gp) 10%, transparent); }
+.gloz-no-hoverfx .gloz-vqty-btn:hover { background: transparent; }
+.gloz-vqty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.gloz-vqty-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--gp) 45%, transparent); }
+.gloz-vqty-num { min-width: 22px; text-align: center; font-weight: 800; font-size: 0.9rem; }
+
+.gloz-vqty-remove {
+  flex: 0 0 auto; width: 26px; height: 26px; border: none; border-radius: 50%; cursor: pointer;
+  background: color-mix(in srgb, var(--gloz-error, #dc2626) 10%, transparent); color: var(--gloz-error, #dc2626);
+  display: grid; place-items: center; transition: background 0.15s ease;
+}
+.gloz-vqty-remove:hover { background: color-mix(in srgb, var(--gloz-error, #dc2626) 18%, transparent); }
+.gloz-no-hoverfx .gloz-vqty-remove:hover { background: color-mix(in srgb, var(--gloz-error, #dc2626) 10%, transparent); }
+.gloz-vqty-remove:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gloz-error, #dc2626) 30%, transparent); }
+
+.gloz-vqty-row--out { opacity: 0; transform: translateX(6px) scale(0.98); }
+
+.gloz-vqty-add {
+  justify-self: start; margin-top: 4px; border: none; background: transparent; cursor: pointer;
+  color: var(--gp); font-weight: 700; font-size: 0.84rem; padding: 4px 2px;
+}
+.gloz-vqty-add:hover { text-decoration: underline; }
+.gloz-no-hoverfx .gloz-vqty-add:hover { text-decoration: none; }
+.gloz-vqty-add:focus-visible { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--gp) 40%, transparent); border-radius: 4px; }
+.gloz-vqty-err { margin-top: 4px; }
+
+/* Upsells (productos extra) */
+.gloz-upsell {
+  position: relative; display: flex; align-items: center; gap: 12px; width: 100%; cursor: pointer;
+  padding: 11px 12px; border: 2px solid var(--gloz-border, #e6e3da); border-radius: calc(var(--gloz-radius, 20px) * 0.6);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.gloz-upsell:has(.gloz-upsell-check:checked) { border-color: var(--gloz-offer-border, var(--gp)); background: var(--gloz-offer-bg, color-mix(in srgb, var(--gp) 6%, #fff)); }
+.gloz-upsell-img { width: 44px; height: 44px; border-radius: calc(var(--gloz-radius, 20px) * 0.4); object-fit: cover; border: 1px solid var(--gloz-border, #e6e3da); flex: 0 0 auto; background: #f4f4f2; }
+.gloz-upsell-main { flex: 1 1 auto; min-width: 0; }
+.gloz-upsell-name { font-weight: 700; font-size: 0.92rem; }
+.gloz-upsell-prices { display: flex; gap: 7px; align-items: baseline; margin-top: 2px; flex-wrap: wrap; }
+.gloz-upsell-price { font-weight: 800; color: var(--gp); font-size: 0.92rem; }
+.gloz-upsell-cmp { font-size: 0.78rem; color: var(--gloz-muted, #5b6560); text-decoration: line-through; }
+.gloz-upsell-check { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.gloz-upsell-add {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--gloz-border, #e6e3da);
+  position: relative; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.gloz-upsell-add::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 11px; height: 6px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) scale(0); transition: transform 0.14s ease;
+}
+.gloz-upsell-check:checked ~ .gloz-upsell-add { border-color: var(--gp); background: var(--gp); }
+.gloz-upsell-check:checked ~ .gloz-upsell-add::after { transform: rotate(-45deg) scale(1); }
+.gloz-upsell-check:focus-visible ~ .gloz-upsell-add { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gp) 30%, transparent); }
+
+/* Botones de acción */
+.gloz-submit {
+  width: 100%; border: none; cursor: pointer; font-family: inherit; font-weight: var(--gloz-heading-weight, 800); font-size: calc(1.05rem * var(--gloz-font-scale, 1));
+  color: var(--gloz-cta-text, #1a1400); background: var(--gloz-cta-bg, #e8912d); padding: 15px 18px; border-radius: calc(var(--gloz-radius, 20px) * 0.65); min-height: 54px;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); transition: transform 0.14s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+.gloz-submit:hover { filter: brightness(1.05); }
+.gloz-no-hoverfx .gloz-submit:hover { filter: none; }
+.gloz-submit:active { transform: translateY(1px); }
+.gloz-submit:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gloz-cta-bg, #e8912d) 45%, transparent); }
+.gloz-submit[disabled] { opacity: 0.75; cursor: progress; }
+
+.gloz-prepaid {
+  width: 100%; cursor: pointer; background: transparent; color: var(--gloz-prepaid, var(--gp)); border: 2px solid var(--gloz-prepaid, var(--gp));
+  font-family: inherit; font-weight: 700; font-size: calc(0.95rem * var(--gloz-font-scale, 1)); padding: 12px; border-radius: calc(var(--gloz-radius, 20px) * 0.65);
+  display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s ease, box-shadow 0.2s ease;
+}
+.gloz-prepaid:hover { background: color-mix(in srgb, var(--gloz-prepaid, var(--gp)) 8%, transparent); }
+.gloz-no-hoverfx .gloz-prepaid:hover { background: transparent; }
+.gloz-prepaid:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gloz-prepaid, var(--gp)) 30%, transparent); }
+.gloz-helper { margin: 6px 0 0; font-size: 0.78rem; color: var(--gloz-muted, #5b6560); text-align: center; }
+
+/* Botón de 2 líneas: texto principal + subtítulo (con soporte de texto dinámico) */
+.gloz-btn-textcol { display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 1px; min-width: 0; }
+.gloz-btn-maintext { font: inherit; }
+.gloz-btn-subtext { font-size: 0.72em; font-weight: 600; opacity: 0.85; }
+
+.gloz-guarantee {
+  display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center;
+  font-size: 0.82rem; color: var(--gloz-muted, #5b6560); background: color-mix(in srgb, var(--gp) 7%, transparent);
+  border-radius: calc(var(--gloz-radius, 20px) * 0.55); padding: 10px 12px;
+}
+.gloz-guarantee svg { color: var(--gp); flex: 0 0 auto; }
+
+.gloz-trust { margin: 0; font-size: 0.76rem; color: var(--gloz-muted, #5b6560); }
+
+.gloz-scarcity {
+  text-align: center; font-size: 0.82rem; font-weight: 700; padding: 9px 12px; border-radius: calc(var(--gloz-radius, 20px) * 0.5);
+  background: color-mix(in srgb, var(--gloz-error, #dc2626) 10%, transparent); color: var(--gloz-error, #dc2626);
+}
+
+.gloz-notice {
+  background: color-mix(in srgb, var(--gloz-error, #dc2626) 13%, transparent); color: var(--gloz-error, #dc2626);
+  border: 1.5px solid color-mix(in srgb, var(--gloz-error, #dc2626) 38%, transparent); border-radius: calc(var(--gloz-radius, 20px) * 0.45);
+  padding: 12px 14px; font-size: var(--gloz-notice-size, 15px); font-weight: 700; line-height: 1.4;
+}
+.gloz-notice[hidden] { display: none; }
+
+.gloz-spinner { width: 18px; height: 18px; border: 2px solid color-mix(in srgb, var(--gloz-cta-text, #1a1400) 40%, transparent); border-top-color: var(--gloz-cta-text, #1a1400); border-radius: 50%; animation: gloz-spin 0.7s linear infinite; }
+@keyframes gloz-spin { to { transform: rotate(360deg); } }
+
+/* Éxito */
+.gloz-success { text-align: center; padding: 40px 24px 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; width: 100%; max-width: 420px; margin: 0 auto; }
+.gloz-success-ic { width: 104px; height: 104px; margin: 0 auto 24px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--gp) 14%, transparent); color: var(--gp); flex: 0 0 auto; }
+.gloz-success-ic svg { width: 52px; height: 52px; }
+.gloz-success h3 { margin: 0 0 14px; font-size: calc(var(--gloz-success-size, 30px) * var(--gloz-font-scale, 1)); font-weight: var(--gloz-heading-weight, 800); line-height: 1.2; }
+.gloz-success p { margin: 0 auto; max-width: 30ch; color: var(--gloz-muted, #5b6560); font-size: calc(var(--gloz-success-size, 30px) * 0.6 * var(--gloz-font-scale, 1)); line-height: 1.55; }
+.gloz-success .gloz-ord { display: inline-block; margin-top: 20px; font-weight: 800; font-size: calc(var(--gloz-success-size, 30px) * 0.62 * var(--gloz-font-scale, 1)); color: var(--gp); }
+.gloz-success .gloz-success-close { margin-top: 28px; width: 100%; }
+.gloz-success-close {
+  min-height: 52px; font-size: calc(1.05rem * var(--gloz-font-scale, 1)); font-weight: 800;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+}
+
+body.gloz-noscroll { overflow: hidden; }
+
+/* ── Icono + animaciones del botón trigger ─────────────────────────────────── */
+.gloz-trig-ic { display: inline-flex; align-items: center; }
+.gloz-trig-anim-pulse { animation: gloz-pulse 2s ease-in-out infinite; }
+.gloz-trig-anim-shine { position: relative; overflow: hidden; }
+.gloz-trig-anim-shine::after, .gloz-btnanim-shine::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.55), transparent);
+  transform: skewX(-20deg); animation: gloz-shine 2.6s ease-in-out infinite;
+}
+.gloz-trig-anim-shake, .gloz-btnanim-shake { animation: gloz-shake 2.6s ease-in-out infinite; }
+@keyframes gloz-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes gloz-shine { 0% { left: -60%; } 55%,100% { left: 130%; } }
+@keyframes gloz-shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  10% { transform: translateX(-3px) rotate(-1deg); }
+  20% { transform: translateX(3px) rotate(1deg); }
+  30% { transform: translateX(-3px) rotate(-1deg); }
+  40% { transform: translateX(3px) rotate(1deg); }
+  50% { transform: translateX(0) rotate(0); }
+}
+
+/* ── Botones de acción: animaciones + estilo relleno alterno ───────────────── */
+.gloz-btnanim-pulse { animation: gloz-pulse 2s ease-in-out infinite; }
+.gloz-submit, .gloz-prepaid { position: relative; overflow: hidden; }
+.gloz-prepaid--solid { background: var(--gloz-prepaid, var(--gp)); color: #fff; border-color: var(--gloz-prepaid, var(--gp)); }
+.gloz-prepaid--solid:hover { background: var(--gloz-prepaid, var(--gp)); filter: brightness(1.06); }
+
+/* Nota: el diseño de las ofertas (tarjeta + cinta superior) vive arriba, en
+   el bloque "Ofertas — tarjetas Opción C". No hay reglas duplicadas aquí. */
+
+/* ── Bloque de imagen ──────────────────────────────────────────────────────── */
+.gloz-cimg { display: block; width: 100%; height: auto; margin: 0 auto; border-radius: 12px; }
+
+/* ── Texto personalizado ───────────────────────────────────────────────────── */
+.gloz-ctext-h { font-weight: 800; font-size: 0.98rem; margin-bottom: 2px; }
+.gloz-ctext-b { margin: 0; font-size: 0.88rem; color: var(--gloz-muted, #5b6560); line-height: 1.5; }
+
+/* ── Trust moderno (chips con icono) ───────────────────────────────────────── */
+.gloz-trust-items { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.gloz-trust-item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--gloz-text, #17211d); }
+.gloz-trust-item svg { color: var(--gp); flex: 0 0 auto; }
+.gloz-trust--cards .gloz-trust-item { background: color-mix(in srgb, var(--gp) 8%, transparent); padding: 7px 11px; border-radius: 999px; }
+.gloz-trust--cards .gloz-trust-item:hover { background: color-mix(in srgb, var(--gp) 14%, transparent); }
+
+/* ── Garantía: variantes ───────────────────────────────────────────────────── */
+.gloz-guarantee--outline { background: transparent; border: 1px solid var(--gloz-border, #e6e3da); }
+.gloz-guarantee--solid { background: color-mix(in srgb, var(--gp) 12%, transparent); color: var(--gloz-text, #17211d); }
+
+/* ── Contador: variantes + icono ───────────────────────────────────────────── */
+.gloz-scarcity { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.gloz-scarcity svg { flex: 0 0 auto; }
+.gloz-scarcity-time { font-variant-numeric: tabular-nums; }
+.gloz-scarcity--solid { background: var(--gloz-error, #dc2626); color: #fff; }
+.gloz-scarcity--outline { background: transparent; border: 1.5px solid var(--gloz-error, #dc2626); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gloz-modal-overlay, .gloz-modal, .gloz-radio::after, .gloz-upsell-add::after { transition: none !important; }
+  .gloz-spinner { animation-duration: 1.4s; }
+  .gloz-trig-anim-pulse, .gloz-btnanim-pulse { animation: none !important; }
+  .gloz-trig-anim-shine::after, .gloz-btnanim-shine::after { animation: none !important; display: none; }
+  .gloz-trig-anim-shake, .gloz-btnanim-shake { animation: none !important; }
+  .gloz-offer-card:hover { transform: none; }
+  .gloz-offer-card:not(.gloz-offer-card--noanim).is-sel { animation: none; }
+  .gloz-offer-note { animation: none !important; }
+  .gloz-ribbon-anim-pulse { animation: none !important; }
+  .gloz-ribbon-anim-shine::after { animation: none !important; display: none; }
+  .gloz-variant-field--in { animation: none !important; }
+  .gloz-vqty-row, .gloz-vqty-row--out { transition: none !important; }
+}
