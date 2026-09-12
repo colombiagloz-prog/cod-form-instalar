@@ -131,7 +131,7 @@
       "price": {{ v_price | json }},
       "compareAtPrice": {% if v_compare > 0 %}{{ v_compare | json }}{% else %}null{% endif %},
       "title": {{ product.title | json }},
-      "image": {{ product.featured_image | image_url: width: 200 | json }},
+      "image": {% if product.featured_image %}{{ product.featured_image | image_url: width: 200 | json }}{% else %}null{% endif %},
       "url": {{ product.url | json }},
       "variants": [
         {%- comment %} Solo se usa si el producto tiene MÁS DE UNA variante (el JS decide si muestra el selector). Precio siempre /100 (ver nota de subunidad arriba). {%- endcomment -%}
@@ -374,7 +374,7 @@
                       "title": {{ up.title | json }},
                       "price": {{ upv_price | json }},
                       "compareAtPrice": {% if upv_compare > 0 %}{{ upv_compare | json }}{% else %}null{% endif %},
-                      "image": {{ up.featured_image | image_url: width: 160 | json }},
+                      "image": {% if up.featured_image %}{{ up.featured_image | image_url: width: 160 | json }}{% else %}null{% endif %},
                       "available": {{ upv.available | json }}
                     }
                   {%- else -%}
