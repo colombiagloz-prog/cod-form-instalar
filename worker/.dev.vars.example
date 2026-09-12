@@ -10,8 +10,8 @@ SHOPIFY_CLIENT_SECRET=
 # RECOMENDADO — Contraseña (la inventas tú) para entrar a tu panel de bloqueos /admin.
 ADMIN_SECRET=
 
-# OPCIONAL — Token de la Conversions API de Meta. Vacío = no se usa.
-META_CAPI_TOKEN=
-
-# OPCIONAL — Token de la Events API de TikTok. Vacío = no se usa.
-TIKTOK_ACCESS_TOKEN=
+# ── OPCIONALES (Meta / TikTok) ─────────────────────────────────────────────
+# Para enviar eventos a Meta o TikTok por servidor. NO se piden al instalar.
+# Si algún día los usas, agrégalos después en:
+#   Cloudflare → tu worker → Settings → Variables and Secrets → Add
+# con los nombres:  META_CAPI_TOKEN   y   TIKTOK_ACCESS_TOKEN
