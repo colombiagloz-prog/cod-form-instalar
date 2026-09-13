@@ -520,3 +520,29 @@ body.gloz-noscroll { overflow: hidden; }
   .gloz-guarantee.is-animated svg,
   .gloz-trust-items.is-animated .gloz-trust-item svg{animation:none}
 }
+
+/* ── Fase 4: bloque Resumen de compra ── */
+.gloz-summary{background:color-mix(in srgb, var(--gp) 5%, var(--gloz-popup-bg,#fff));border:1px solid var(--gloz-border,#e6e3da);border-radius:12px;padding:12px 14px}
+.gloz-sum-h{font-weight:800;font-size:.95rem;margin-bottom:8px}
+.gloz-sum-row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:.92rem}
+.gloz-sum-disc{color:var(--gp);font-weight:600}
+.gloz-sum-total{border-top:1px solid var(--gloz-border,#e6e3da);margin-top:4px;padding-top:8px;font-weight:800;font-size:1.05rem}
+
+/* ── Downsell (oferta post-pedido, en la pantalla de éxito) ────────────────── */
+.gloz-ds-mount{width:100%;margin-top:26px}
+.gloz-ds{width:100%;box-sizing:border-box;text-align:left;border:1.5px solid color-mix(in srgb, var(--gp) 45%, transparent);border-radius:16px;padding:16px 16px 14px;background:color-mix(in srgb, var(--gp) 6%, var(--gloz-popup-bg,#fff));box-shadow:0 10px 26px rgba(0,0,0,.08);animation:gloz-ds-in .38s cubic-bezier(.2,.7,.3,1) both}
+@keyframes gloz-ds-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.gloz-ds-title{font-weight:800;font-size:1.02rem;line-height:1.25;color:var(--gp)}
+.gloz-ds-text{margin:6px 0 0;font-size:.9rem;line-height:1.5;color:var(--gloz-muted,#5b6560)}
+.gloz-ds-body{display:flex;align-items:center;gap:12px;margin:12px 0}
+.gloz-ds-img{width:64px;height:64px;object-fit:cover;border-radius:12px;flex:0 0 auto;background:#f1efe9}
+.gloz-ds-info{flex:1;min-width:0}
+.gloz-ds-name{font-weight:700;font-size:.95rem;line-height:1.3}
+.gloz-ds-prices{display:flex;align-items:baseline;gap:8px;margin-top:4px}
+.gloz-ds-price{font-weight:800;font-size:1.1rem;color:var(--gp)}
+.gloz-ds-cmp{text-decoration:line-through;color:var(--gloz-muted,#8a938d);font-size:.9rem}
+.gloz-ds-err{color:var(--gloz-error,#c0392b);font-size:.85rem;margin:2px 0 8px}
+.gloz-ds .gloz-ds-accept{width:100%;margin-top:2px}
+.gloz-ds-decline{display:block;width:100%;margin-top:8px;background:none;border:none;color:var(--gloz-muted,#5b6560);font-size:.9rem;font-weight:600;cursor:pointer;padding:6px;text-decoration:underline;text-underline-offset:2px}
+.gloz-ds-done{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 4px;font-weight:800;color:var(--gp);font-size:1rem}
+.gloz-ds-done svg{color:var(--gp)}

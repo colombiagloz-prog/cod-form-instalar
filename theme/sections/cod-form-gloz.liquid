@@ -441,6 +441,36 @@
                 "bg_color": {{ block.settings.bg_color | json }},
                 "text_color": {{ block.settings.text_color | json }},
                 "show_icon": {{ block.settings.show_icon | json }}
+              {%- when 'summary' -%}
+                "title": {{ block.settings.title | json }}
+              {%- when 'downsell' -%}
+                "enable": {{ block.settings.enable | json }},
+                "title": {{ block.settings.title | json }},
+                "text": {{ block.settings.text | json }},
+                "label_override": {{ block.settings.label_override | json }},
+                "button_text": {{ block.settings.button_text | json }},
+                "decline_text": {{ block.settings.decline_text | json }},
+                "discount_type": {{ block.settings.discount_type | json }},
+                "discount": {{ block.settings.discount | json }},
+                "fixed_price": {{ block.settings.fixed_price | json }},
+                "show_image": {{ block.settings.show_image | json }},
+                "image_url": {{ block.settings.image_url | json }},
+                "variant_id": {{ block.settings.variant_id | json }},
+                "product": {%- assign ds = block.settings.product -%}
+                  {%- assign dsv = blank -%}
+                  {%- if ds -%}{%- assign dsv = ds.selected_or_first_available_variant -%}{%- endif -%}
+                  {%- if ds and dsv -%}
+                    {%- assign dsv_price = dsv.price | divided_by: 100.0 -%}
+                    {
+                      "variantId": {{ dsv.id | json }},
+                      "title": {{ ds.title | json }},
+                      "price": {{ dsv_price | json }},
+                      "image": {% if ds.featured_image %}{{ ds.featured_image | image_url: width: 200 | json }}{% else %}null{% endif %},
+                      "available": {{ dsv.available | json }}
+                    }
+                  {%- else -%}
+                    null
+                  {%- endif -%}
             {%- endcase -%}
           }
         }{% unless forloop.last %},{% endunless %}
@@ -994,6 +1024,37 @@
         { "type": "color", "id": "bg_color", "label": "Fondo (estilos Barra/Píldora)" },
         { "type": "color", "id": "text_color", "label": "Texto" },
         { "type": "checkbox", "id": "show_icon", "label": "Mostrar ícono de reloj", "default": true }
+      ]
+    },
+    {
+      "type": "summary",
+      "name": "Resumen de compra",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Título", "default": "Resumen de tu pedido" }
+      ]
+    },
+    {
+      "type": "downsell",
+      "name": "Oferta post-pedido",
+      "settings": [
+        { "type": "paragraph", "content": "Se ofrece DESPUÉS de que el cliente confirma su pedido, en la pantalla de \"¡Pedido confirmado!\". Si acepta, se crea un segundo pedido contra entrega con sus mismos datos, en un clic." },
+        { "type": "checkbox", "id": "enable", "label": "Activar la oferta post-pedido", "default": true },
+        { "type": "product", "id": "product", "label": "Producto a ofrecer" },
+        { "type": "text", "id": "variant_id", "label": "ID de variante (para productos fuera del canal)", "info": "Solo si el producto NO está publicado en \"Tienda online\": pega aquí el ID numérico de la variante." },
+        { "type": "text", "id": "title", "label": "Título de la oferta", "default": "🎁 Oferta especial solo por hoy" },
+        { "type": "textarea", "id": "text", "label": "Texto (opcional)", "default": "Agrégalo a tu pedido con un descuento exclusivo. Se entrega junto con tu compra." },
+        { "type": "text", "id": "label_override", "label": "Nombre a mostrar (opcional)" },
+        { "type": "checkbox", "id": "show_image", "label": "Mostrar foto", "default": true },
+        { "type": "text", "id": "image_url", "label": "…o URL de imagen", "info": "Reemplaza la foto del producto si la pones." },
+        { "type": "select", "id": "discount_type", "label": "Tipo de descuento", "default": "percent", "options": [
+          { "value": "percent", "label": "Porcentaje (%)" },
+          { "value": "fixed_amount", "label": "Monto fijo a restar ($)" },
+          { "value": "fixed_price", "label": "Precio final fijo ($)" }
+        ]},
+        { "type": "range", "id": "discount", "label": "Descuento (%)", "min": 0, "max": 70, "step": 1, "unit": "%", "default": 20 },
+        { "type": "number", "id": "fixed_price", "label": "Valor ($)", "info": "Según el tipo elegido: con \"Monto fijo a restar\" es lo que se DESCUENTA; con \"Precio final fijo\" es el PRECIO YA CON DESCUENTO." },
+        { "type": "text", "id": "button_text", "label": "Texto del botón aceptar", "default": "Sí, agregar a mi pedido" },
+        { "type": "text", "id": "decline_text", "label": "Texto del botón rechazar", "default": "No, gracias" }
       ]
     }
   ],

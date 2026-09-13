@@ -28,6 +28,8 @@
     return n;
   }
 
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
   var ICON_PATHS = {
     cart: ["M3 3h2l.4 2M7 13h10l3-8H6.4", "M7 13L5.4 5", "M16 19a2 2 0 1 0 0 4 2 2 0 0 0 0-4z", "M9 19a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"],
     bag: ["M6 7h12l-1 14H7L6 7z", "M9 7a3 3 0 0 1 6 0"],
@@ -919,6 +921,34 @@
       if (d.textEl) d.textEl.textContent = self.applyTemplate(d.textTpl);
       if (d.subEl) d.subEl.textContent = self.applyTemplate(d.subTpl);
     });
+    this.updateSummary();
+  };
+
+  // Bloque "Resumen de compra" (opcional): producto × unidades, subtotal,
+  // descuento y total. Se actualiza en vivo al cambiar oferta/upsell.
+  // El downsell no se dibuja en el formulario: se guarda para ofrecerlo en la
+  // pantalla de éxito (ver renderDownsell). Devuelve null para no ocupar espacio.
+  GlozCod.prototype.render_downsell = function (block) { this.downsellBlock = block; return null; };
+
+  GlozCod.prototype.render_summary = function (block) {
+    var s = block.settings;
+    this.summaryTitle = s.title || "Resumen de tu pedido";
+    this.summaryEl = el("div", { class: "gloz-summary" });
+    this.updateSummary();
+    return el("div", { class: "gloz-block" }, [this.summaryEl]);
+  };
+  GlozCod.prototype.updateSummary = function () {
+    if (!this.summaryEl) return;
+    var t = this.computeOrderTotals();
+    var units = (this.selectedOffer && this.selectedOffer.units) || 1;
+    var discount = Math.max(0, t.subtotal - t.total);
+    var cur = this.cfg.currency;
+    var rows = "";
+    rows += '<div class="gloz-sum-h">' + esc(this.summaryTitle) + "</div>";
+    rows += '<div class="gloz-sum-row"><span>' + esc(this.cfg.product.title) + " × " + units + "</span><span>" + money(t.subtotal, cur) + "</span></div>";
+    if (discount > 0) rows += '<div class="gloz-sum-row gloz-sum-disc"><span>Descuento</span><span>-' + money(discount, cur) + "</span></div>";
+    rows += '<div class="gloz-sum-row gloz-sum-total"><span>Total a pagar</span><span>' + money(t.total, cur) + "</span></div>";
+    this.summaryEl.innerHTML = rows;
   };
 
   // Arma la columna de texto (línea principal + subtítulo opcional) de un
@@ -1191,6 +1221,7 @@
     var data = this.collectFields();
     if (!data.ok) { var fb = this.modal.querySelector(".err"); if (fb) fb.focus(); return; }
     if (!this.selectedOffer) { this.showError("Elige una oferta."); return; }
+    this._lastFields = data.fields; // se reutilizan si el cliente acepta el downsell
 
     var original = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = "";
@@ -1247,6 +1278,92 @@
     var closeBtn = el("button", { class: "gloz-prepaid gloz-prepaid--solid gloz-success-close", type: "button", text: this.cfg.texts.closeLabel || "Cerrar" });
     closeBtn.addEventListener("click", function () { self.close(); });
     box.appendChild(closeBtn); body.appendChild(box);
+    // Oferta post-pedido (downsell): se inserta ANTES del botón "Cerrar".
+    this.renderDownsell(box, closeBtn);
+  };
+
+  // El downsell NO se muestra en el formulario: se guarda en render_downsell y
+  // se ofrece aquí, en la pantalla de éxito, reutilizando los datos del cliente
+  // (this._lastFields) para crear un segundo pedido COD con un clic.
+  GlozCod.prototype.renderDownsell = function (box, closeBtn) {
+    var block = this.downsellBlock, self = this;
+    if (!block || !block.settings) return;
+    var s = block.settings;
+    if (s.enable === false) return;
+    var p = s.product || null;
+    var manualId = (s.variant_id || "").toString().trim();
+    var variantId = (p && p.variantId != null) ? String(p.variantId) : (manualId || null);
+    if (!variantId) return;
+    if (p && p.available === false) return;
+    var mount = el("div", { class: "gloz-ds-mount" });
+    box.insertBefore(mount, closeBtn);
+    if (p) { this.mountDownsellCard(mount, closeBtn, block, variantId, p); return; }
+    // Fuera del canal "Tienda online": resolver título/precio/imagen reales.
+    fetch(this.cfg.apiUrl + "/variant-info?id=" + encodeURIComponent(variantId))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res || !res.ok || !res.variant || res.variant.available === false) throw new Error("no");
+        var v = res.variant;
+        self.mountDownsellCard(mount, closeBtn, block, variantId, { variantId: String(v.variantId), title: v.title, price: Number(v.price) || 0, image: v.image || null });
+      })
+      .catch(function () { if (mount.parentNode) mount.parentNode.removeChild(mount); });
+  };
+
+  GlozCod.prototype.mountDownsellCard = function (mount, closeBtn, block, variantId, p) {
+    var self = this, s = block.settings;
+    var base = p.price;
+    var pricing = this.upsellPricing(s, base);
+    var total = pricing.total, cur = this.cfg.currency;
+    var name = (s.label_override && s.label_override.trim()) || p.title;
+    var card = el("div", { class: "gloz-ds" });
+    card.appendChild(el("div", { class: "gloz-ds-title", text: (s.title && s.title.trim()) || "🎁 Oferta especial solo por hoy" }));
+    if (s.text) card.appendChild(el("p", { class: "gloz-ds-text", text: s.text }));
+    var bodyRow = el("div", { class: "gloz-ds-body" });
+    var imgSrc = (s.image_url && s.image_url.trim()) || (s.show_image !== false ? p.image : null);
+    if (imgSrc) bodyRow.appendChild(el("img", { class: "gloz-ds-img", src: imgSrc, alt: "", loading: "lazy" }));
+    var info = el("div", { class: "gloz-ds-info" }, [el("div", { class: "gloz-ds-name", text: name })]);
+    var prices = el("div", { class: "gloz-ds-prices" }, [el("span", { class: "gloz-ds-price", text: money(total, cur) })]);
+    if (total < base) prices.appendChild(el("span", { class: "gloz-ds-cmp", text: money(base, cur) }));
+    info.appendChild(prices);
+    bodyRow.appendChild(info);
+    card.appendChild(bodyRow);
+    var errEl = el("div", { class: "gloz-ds-err", hidden: "" });
+    card.appendChild(errEl);
+    var accept = el("button", { class: "gloz-submit gloz-ds-accept", type: "button" }, [iconEl("cart", 18), el("span", { text: s.button_text || "Sí, agregar a mi pedido" })]);
+    var decline = el("button", { class: "gloz-ds-decline", type: "button", text: s.decline_text || "No, gracias" });
+    accept.addEventListener("click", function () { self.acceptDownsell(accept, card, errEl, variantId, name, pricing); });
+    decline.addEventListener("click", function () { if (mount.parentNode) mount.parentNode.removeChild(mount); });
+    card.appendChild(accept);
+    card.appendChild(decline);
+    mount.appendChild(card);
+  };
+
+  GlozCod.prototype.acceptDownsell = function (btn, card, errEl, variantId, name, pricing) {
+    var self = this;
+    if (errEl) errEl.hidden = true;
+    var original = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = "";
+    btn.appendChild(el("span", { class: "gloz-spinner" }));
+    btn.appendChild(el("span", { text: this.cfg.texts.submitting || "Enviando…" }));
+    var body = {
+      variantId: String(variantId), quantity: 1,
+      discountType: pricing.type, discountValue: pricing.value,
+      productTitle: name, currency: this.cfg.currency,
+      fields: this._lastFields || {},
+      eventId: uuid(), eventSourceUrl: location.href,
+      fbp: getCookie("_fbp"), fbc: getCookie("_fbc"), downsell: true,
+    };
+    fetch(this.cfg.apiUrl + "/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) throw new Error(j.error || self.cfg.texts.errorGeneric);
+        card.innerHTML = "";
+        card.appendChild(el("div", { class: "gloz-ds-done" }, [svg("check", 22), el("span", { text: "¡Listo! Lo agregamos a tu pedido." })]));
+      })
+      .catch(function (e) {
+        btn.disabled = false; btn.innerHTML = original;
+        if (errEl) { errEl.textContent = e.message || (self.cfg.texts.errorGeneric || "No se pudo agregar."); errEl.hidden = false; }
+      });
   };
 
   GlozCod.prototype.goPrepaid = function (btn) {
