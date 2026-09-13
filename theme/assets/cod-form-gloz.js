@@ -314,6 +314,24 @@
     return wrap.childNodes.length ? wrap : null;
   };
 
+  // Encabezado del popup como BLOQUE agregable: foto + nombre + precio del
+  // producto, ubicable donde el merchant quiera (ya no fijo arriba).
+  GlozCod.prototype.render_product_header = function (block) {
+    var s = block.settings;
+    var wrap = el("div", { class: "gloz-block gloz-mhead-block gloz-align-" + (s.align || "left") });
+    if (s.show_image !== false && this.cfg.product.image) {
+      wrap.appendChild(el("img", { class: "gloz-mhead-img", src: this.cfg.product.image, alt: "" }));
+    }
+    var info = el("div", { class: "gloz-mtitle" });
+    var h = el("h3", { text: s.title_override || this.cfg.product.title });
+    if (s.title_size) h.style.fontSize = s.title_size + "px";
+    if (s.title_color) h.style.color = s.title_color;
+    info.appendChild(h);
+    if (s.show_price !== false) info.appendChild(el("p", { class: "gloz-mhead-price", text: this.priceLine() }));
+    wrap.appendChild(info);
+    return wrap;
+  };
+
   // ── Ofertas — tarjetas "Opción C": cinta (ribbon) superior a todo el ancho +
   // radio/nombre/nota/precio-por-unidad a la izquierda, total/tachado a la
   // derecha. Selección animada al TOCAR (no depende de hover). ──────────────

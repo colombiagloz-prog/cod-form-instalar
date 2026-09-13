@@ -228,6 +228,13 @@
           {%- endcomment -%}
           "settings": {
             {%- case block.type -%}
+              {%- when 'product_header' -%}
+                "show_image": {{ block.settings.show_image | json }},
+                "show_price": {{ block.settings.show_price | json }},
+                "title_override": {{ block.settings.title_override | json }},
+                "title_size": {{ block.settings.title_size | json }},
+                "title_color": {{ block.settings.title_color | json }},
+                "align": {{ block.settings.align | json }}
               {%- when 'title' -%}
                 "heading": {{ block.settings.heading | json }},
                 "title_size": {{ block.settings.title_size | json }},
@@ -560,6 +567,21 @@
     { "type": "text", "id": "tiktok_pixel_id", "label": "Pixel Code de TikTok", "info": "Es público. El token de la Events API se configura en el Worker (secreto)." }
   ],
   "blocks": [
+    {
+      "type": "product_header",
+      "name": "Encabezado del producto",
+      "settings": [
+        { "type": "checkbox", "id": "show_image", "label": "Mostrar foto del producto", "default": true },
+        { "type": "checkbox", "id": "show_price", "label": "Mostrar precio", "default": true },
+        { "type": "text", "id": "title_override", "label": "Título (opcional)", "info": "Vacío = usa el nombre del producto." },
+        { "type": "range", "id": "title_size", "label": "Tamaño del título", "min": 14, "max": 28, "step": 1, "unit": "px", "default": 17 },
+        { "type": "color", "id": "title_color", "label": "Color del título" },
+        { "type": "select", "id": "align", "label": "Alineación", "default": "left", "options": [
+          { "value": "left", "label": "Izquierda" },
+          { "value": "center", "label": "Centro" }
+        ]}
+      ]
+    },
     {
       "type": "title",
       "name": "Título",
@@ -959,6 +981,7 @@
     {
       "name": "Botón Contra Entrega",
       "blocks": [
+        { "type": "product_header" },
         { "type": "title" },
         { "type": "offers" },
         { "type": "field_variant" },

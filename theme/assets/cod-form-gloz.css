@@ -492,3 +492,10 @@ body.gloz-noscroll { overflow: hidden; }
   .gloz-variant-field--in { animation: none !important; }
   .gloz-vqty-row, .gloz-vqty-row--out { transition: none !important; }
 }
+
+/* Bloque Encabezado (foto + nombre + precio del producto, agregable) */
+.gloz-mhead-block{display:flex;gap:12px;align-items:center}
+.gloz-mhead-block.gloz-align-center{justify-content:center;text-align:center}
+.gloz-mhead-img{width:56px;height:56px;border-radius:12px;object-fit:cover;flex:none}
+.gloz-mhead-block .gloz-mtitle h3{margin:0;font-weight:800;font-size:1.05rem;line-height:1.2}
+.gloz-mhead-price{margin:2px 0 0;color:var(--gloz-muted);font-weight:600;font-size:.9rem}
