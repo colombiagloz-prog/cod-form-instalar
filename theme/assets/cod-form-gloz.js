@@ -202,6 +202,7 @@
     var val = this.selectedOffer ? this.selectedOffer.total : this.cfg.product.price;
     fbTrack("InitiateCheckout", { currency: this.cfg.currency, value: val, content_ids: this.contentIds(), content_type: "product" });
     ttTrack("InitiateCheckout", { currency: this.cfg.currency, value: val });
+    this.pingStat("initiated");
   };
 
   GlozCod.prototype.applyTheme = function (node) {
@@ -239,6 +240,10 @@
   };
   GlozCod.prototype.animsEnabled = function () { return this.cfg.theme && this.cfg.theme.enableAnimations !== false && !reducedMotion(); };
   GlozCod.prototype.hoverFxEnabled = function () { return !(this.cfg.theme && this.cfg.theme.enableHoverFx === false); };
+  // Reporte de estadística ligero al worker (opens / initiated). Silencioso.
+  GlozCod.prototype.pingStat = function (e) {
+    try { fetch(this.cfg.apiUrl + "/stat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ e: e }), keepalive: true }).catch(function () {}); } catch (x) {}
+  };
 
   GlozCod.prototype.build = function () {
     var self = this, th = this.cfg.theme || {};
@@ -1275,9 +1280,10 @@
     var self = this;
     requestAnimationFrame(function () { self.overlay.classList.add("is-open"); });
     document.addEventListener("keydown", this.keydownHandler, true);
-    // Pixel: ViewContent al abrir
+    // Pixel: ViewContent al abrir + estadística "opens"
     fbTrack("ViewContent", { currency: this.cfg.currency, value: this.cfg.product.price, content_ids: this.contentIds(), content_type: "product" });
     ttTrack("ViewContent", { currency: this.cfg.currency, value: this.cfg.product.price });
+    this.pingStat("opens");
     var focusTarget = this.modal.querySelector(".gloz-input, .gloz-select, .gloz-offer") || this.modal.querySelector(".gloz-mclose");
     setTimeout(function () { if (focusTarget) focusTarget.focus(); }, this.animsEnabled() ? 220 : 0);
   };
