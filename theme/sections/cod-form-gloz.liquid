@@ -417,11 +417,15 @@
                 "text": {{ block.settings.text | json }},
                 "icon": {{ block.settings.icon | json }},
                 "style": {{ block.settings.style | json }},
-                "text_size": {{ block.settings.text_size | json }}
+                "text_size": {{ block.settings.text_size | json }},
+                "color": {{ block.settings.color | json }},
+                "animate": {{ block.settings.animate | json }}
               {%- when 'trust_text' -%}
                 "text": {{ block.settings.text | json }},
                 "align": {{ block.settings.align | json }},
                 "style": {{ block.settings.style | json }},
+                "color": {{ block.settings.color | json }},
+                "animate": {{ block.settings.animate | json }},
                 "item1_icon": {{ block.settings.item1_icon | json }},
                 "item1_text": {{ block.settings.item1_text | json }},
                 "item2_icon": {{ block.settings.item2_icon | json }},
@@ -433,6 +437,7 @@
                 "timer_minutes": {{ block.settings.timer_minutes | json }},
                 "text_template": {{ block.settings.text_template | json }},
                 "style": {{ block.settings.style | json }},
+                "accent_color": {{ block.settings.accent_color | json }},
                 "bg_color": {{ block.settings.bg_color | json }},
                 "text_color": {{ block.settings.text_color | json }},
                 "show_icon": {{ block.settings.show_icon | json }}
@@ -918,10 +923,13 @@
           { "value": "lock", "label": "Candado" },
           { "value": "check", "label": "Check" }
         ]},
-        { "type": "select", "id": "style", "label": "Estilo", "default": "classic", "options": [
+        { "type": "select", "id": "style", "label": "Estilo", "default": "plain", "options": [
+          { "value": "plain", "label": "Sin fondo (limpio)" },
           { "value": "classic", "label": "Clásico" },
           { "value": "badge", "label": "Insignia" }
         ]},
+        { "type": "color", "id": "color", "label": "Color del ícono y acento", "info": "Vacío = usa el color de marca. Dale un color fuerte para más presencia." },
+        { "type": "checkbox", "id": "animate", "label": "Animar el ícono", "default": true },
         { "type": "range", "id": "text_size", "label": "Tamaño del texto", "min": 11, "max": 22, "step": 1, "unit": "px", "default": 14 }
       ]
     },
@@ -938,6 +946,8 @@
           { "value": "left", "label": "Izquierda" },
           { "value": "center", "label": "Centro" }
         ]},
+        { "type": "color", "id": "color", "label": "Color de los sellos (ícono y acento)", "info": "Vacío = color de marca. Súbele intensidad para más fuerza." },
+        { "type": "checkbox", "id": "animate", "label": "Animar los íconos de los sellos", "default": true },
         { "type": "header", "content": "Sellos (estilo \"badges\")" },
         { "type": "select", "id": "item1_icon", "label": "Sello 1: ícono", "default": "lock", "options": [
           { "value": "none", "label": "Ninguno" },
@@ -975,11 +985,13 @@
         ]},
         { "type": "range", "id": "timer_minutes", "label": "Minutos", "min": 5, "max": 180, "step": 5, "default": 15 },
         { "type": "text", "id": "text_template", "label": "Texto (usa {time})", "default": "Esta oferta termina en {time}" },
-        { "type": "select", "id": "style", "label": "Estilo", "default": "bar", "options": [
+        { "type": "select", "id": "style", "label": "Estilo", "default": "modern", "options": [
+          { "value": "modern", "label": "Moderno (sin fondo)" },
           { "value": "bar", "label": "Barra" },
           { "value": "pill", "label": "Píldora" }
         ]},
-        { "type": "color", "id": "bg_color", "label": "Fondo" },
+        { "type": "color", "id": "accent_color", "label": "Color de los números", "info": "Para el estilo Moderno: color de los dígitos del reloj." },
+        { "type": "color", "id": "bg_color", "label": "Fondo (estilos Barra/Píldora)" },
         { "type": "color", "id": "text_color", "label": "Texto" },
         { "type": "checkbox", "id": "show_icon", "label": "Mostrar ícono de reloj", "default": true }
       ]

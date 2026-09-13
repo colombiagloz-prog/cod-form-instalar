@@ -1081,7 +1081,9 @@
     var s = block.settings; if (!s.text) return null;
     var textEl = el("span", { text: s.text });
     if (s.text_size) textEl.style.fontSize = s.text_size + "px";
-    return el("div", { class: "gloz-block" }, [ el("div", { class: "gloz-guarantee gloz-guarantee--" + (s.style || "soft") }, [svg(s.icon || "shield", 18), textEl]) ]);
+    var g = el("div", { class: "gloz-guarantee gloz-guarantee--" + (s.style || "plain") + (s.animate !== false && this.animsEnabled() ? " is-animated" : "") }, [svg(s.icon || "shield", 18), textEl]);
+    if (s.color) g.style.setProperty("--gg", s.color);
+    return el("div", { class: "gloz-block" }, [g]);
   };
 
   GlozCod.prototype.render_trust_text = function (block) {
@@ -1089,8 +1091,9 @@
     var items = [];
     [1, 2, 3].forEach(function (i) { var txt = s["item" + i + "_text"]; if (txt) items.push({ icon: s["item" + i + "_icon"] || "check", text: txt }); });
     if (items.length) {
-      var row = el("div", { class: "gloz-trust-items gloz-trust--" + (s.style || "cards") });
-      items.forEach(function (it) { row.appendChild(el("div", { class: "gloz-trust-item" }, [svg(it.icon, 18), el("span", { text: it.text })])); });
+      var row = el("div", { class: "gloz-trust-items gloz-trust--" + (s.style || "cards") + (s.animate !== false && this.animsEnabled() ? " is-animated" : "") });
+      if (s.color) row.style.setProperty("--gt", s.color);
+      items.forEach(function (it, i) { var item = el("div", { class: "gloz-trust-item" }, [svg(it.icon, 18), el("span", { text: it.text })]); item.style.setProperty("--gt-i", String(i)); row.appendChild(item); });
       return el("div", { class: "gloz-block" }, [row]);
     }
     if (!s.text) return null;
@@ -1108,9 +1111,10 @@
     var inner = [];
     if (s.show_icon !== false) inner.push(svg("clock", 18));
     inner.push(span);
-    var box = el("div", { class: "gloz-scarcity gloz-scarcity--" + (s.style || "soft") }, inner);
+    var box = el("div", { class: "gloz-scarcity gloz-scarcity--" + (s.style || "modern") }, inner);
     if (s.bg_color) box.style.background = s.bg_color;
     if (s.text_color) box.style.color = s.text_color;
+    if (s.accent_color) span.style.color = s.accent_color;
     var wrap = el("div", { class: "gloz-block" }, [box]);
     var template = s.text_template || "Esta oferta termina en {time}";
     function tick() {

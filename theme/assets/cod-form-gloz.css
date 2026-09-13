@@ -499,3 +499,24 @@ body.gloz-noscroll { overflow: hidden; }
 .gloz-mhead-img{width:56px;height:56px;border-radius:12px;object-fit:cover;flex:none}
 .gloz-mhead-block .gloz-mtitle h3{margin:0;font-weight:800;font-size:1.05rem;line-height:1.2}
 .gloz-mhead-price{margin:2px 0 0;color:var(--gloz-muted);font-weight:600;font-size:.9rem}
+
+/* ── Fase 3: garantía / sellos / temporizador (sin fondo + animados) ── */
+.gloz-guarantee--plain{background:transparent!important;border:0!important;box-shadow:none!important;padding:6px 0;color:var(--gg,var(--gp));font-weight:600}
+.gloz-guarantee--plain svg{color:var(--gg,var(--gp))}
+.gloz-guarantee.is-animated svg{animation:gloz-gpulse 1.8s ease-in-out infinite;transform-origin:center}
+@keyframes gloz-gpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.16)}}
+
+.gloz-trust-item svg{color:var(--gt,var(--gp))}
+.gloz-trust-items.is-animated .gloz-trust-item svg{animation:gloz-tfloat 2.4s ease-in-out infinite;animation-delay:calc(var(--gt-i,0)*0.25s)}
+@keyframes gloz-tfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+.gloz-scarcity--modern{background:transparent;border:0;box-shadow:none;padding:6px 0;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700}
+.gloz-scarcity--modern svg{color:var(--gp)}
+.gloz-scarcity--modern .gloz-scarcity-time{font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.5px}
+.gloz-scarcity--modern .gloz-scarcity-time::first-letter{}
+.gloz-scarcity--modern.is-tick .gloz-scarcity-time{animation:gloz-tpulse 1s steps(1) infinite}
+
+@media (prefers-reduced-motion:reduce){
+  .gloz-guarantee.is-animated svg,
+  .gloz-trust-items.is-animated .gloz-trust-item svg{animation:none}
+}
