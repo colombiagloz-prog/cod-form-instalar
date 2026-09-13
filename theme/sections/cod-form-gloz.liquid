@@ -172,6 +172,7 @@
       "tiktokPixelId": {{ s.tiktok_pixel_id | json }}
     },
     "theme": {
+      "preset": {{ s.theme_preset | default: 'personalizado' | json }},
       "popupBg": {{ s.popup_bg | json }},
       "textColor": {{ s.text_color | json }},
       "mutedTextColor": {{ s.muted_text_color | json }},
@@ -491,7 +492,14 @@
       { "value": "shake", "label": "Sacudida" }
     ]},
 
-    { "type": "header", "content": "② Colores generales del popup", "info": "Los colores de ofertas y botones se configuran DENTRO de su propio bloque." },
+    { "type": "header", "content": "② Tema del popup" },
+    { "type": "select", "id": "theme_preset", "label": "Tema", "default": "personalizado", "info": "«Claro» y «Oscuro» aplican una paleta lista y coherente. «Personalizado» usa los colores de abajo y los de cada bloque.", "options": [
+      { "value": "claro", "label": "Claro" },
+      { "value": "oscuro", "label": "Oscuro" },
+      { "value": "personalizado", "label": "Personalizado (colores manuales)" }
+    ]},
+
+    { "type": "header", "content": "Colores (modo Personalizado)", "info": "Los colores de ofertas y botones se configuran DENTRO de su propio bloque." },
     { "type": "color", "id": "popup_bg", "label": "Fondo del popup", "default": "#FFFFFF" },
     { "type": "color", "id": "text_color", "label": "Texto principal", "default": "#17211D" },
     { "type": "color", "id": "muted_text_color", "label": "Texto secundario", "default": "#5B6560" },

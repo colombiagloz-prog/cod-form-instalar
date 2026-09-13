@@ -206,13 +206,21 @@
 
   GlozCod.prototype.applyTheme = function (node) {
     var th = this.cfg.theme || {};
+    // Temas listos (claro / oscuro). Si el preset es uno de esos, sus colores
+    // ganan y se ignoran los colores manuales (incluidos los de los bloques).
+    var PAL = {
+      oscuro: { popupBg: "#141F1A", textColor: "#EAF2EC", mutedTextColor: "#9AB0A5", borderColor: "#2A3A33", accentColor: "#54C295", offerSelectedBg: "#182C23", offerSelectedBorder: "#54C295", badgeBg: "#E0701F", badgeText: "#20140A", ctaBg: "#54C295", ctaText: "#06120C", prepaidColor: "#54C295", errorColor: "#F87171", overlayColor: "#000000" },
+      claro: { popupBg: "#FFFFFF", textColor: "#17211D", mutedTextColor: "#5B6560", borderColor: "#E6E3DA", accentColor: "#2E6E5A", offerSelectedBg: "#EAF3EF", offerSelectedBorder: "#2E6E5A", badgeBg: "#E8912D", badgeText: "#1A1400", ctaBg: "#14342B", ctaText: "#FFFFFF", prepaidColor: "#2E6E5A", errorColor: "#DC2626", overlayColor: "#0F1714" },
+    };
+    this._themePreset = (th.preset === "oscuro" || th.preset === "claro") ? th.preset : null;
+    var c = this._themePreset ? PAL[this._themePreset] : th;
     var vars = {
-      "--gloz-popup-bg": th.popupBg, "--gloz-text": th.textColor, "--gloz-muted": th.mutedTextColor,
-      "--gloz-border": th.borderColor, "--gloz-accent": th.accentColor,
-      "--gloz-offer-bg": th.offerSelectedBg, "--gloz-offer-border": th.offerSelectedBorder,
-      "--gloz-badge-bg": th.badgeBg, "--gloz-badge-text": th.badgeText,
-      "--gloz-cta-bg": th.ctaBg, "--gloz-cta-text": th.ctaText, "--gloz-prepaid": th.prepaidColor,
-      "--gloz-error": th.errorColor, "--gloz-overlay": hexToRgba(th.overlayColor, th.overlayOpacity),
+      "--gloz-popup-bg": c.popupBg, "--gloz-text": c.textColor, "--gloz-muted": c.mutedTextColor,
+      "--gloz-border": c.borderColor, "--gloz-accent": c.accentColor,
+      "--gloz-offer-bg": c.offerSelectedBg, "--gloz-offer-border": c.offerSelectedBorder,
+      "--gloz-badge-bg": c.badgeBg, "--gloz-badge-text": c.badgeText,
+      "--gloz-cta-bg": c.ctaBg, "--gloz-cta-text": c.ctaText, "--gloz-prepaid": c.prepaidColor,
+      "--gloz-error": c.errorColor, "--gloz-overlay": hexToRgba(c.overlayColor, th.overlayOpacity),
       "--gloz-overlay-blur": (th.overlayBlur != null ? th.overlayBlur : 4) + "px",
       "--gloz-radius": (th.cornerRadius != null ? th.cornerRadius : 20) + "px",
       "--gloz-font-scale": th.fontScale || 1, "--gloz-space-scale": th.spaceScale || 1,
@@ -858,9 +866,13 @@
   };
 
   GlozCod.prototype.styleActionBtn = function (btn, s) {
-    if (s.bg) btn.style.background = s.bg;
-    if (s.text_color) btn.style.color = s.text_color;
-    if (s.border_width != null && s.border_width > 0) { btn.style.borderStyle = "solid"; btn.style.borderWidth = s.border_width + "px"; btn.style.borderColor = s.border_color || s.bg; }
+    // En modo tema (claro/oscuro) los colores los pone la paleta (variables CSS),
+    // no el color manual del bloque. En "personalizado" sí manda el del bloque.
+    if (!this._themePreset) {
+      if (s.bg) btn.style.background = s.bg;
+      if (s.text_color) btn.style.color = s.text_color;
+      if (s.border_width != null && s.border_width > 0) { btn.style.borderStyle = "solid"; btn.style.borderWidth = s.border_width + "px"; btn.style.borderColor = s.border_color || s.bg; }
+    }
     if (s.radius != null) btn.style.borderRadius = s.radius + "px";
     if (s.font_size) btn.style.fontSize = s.font_size + "px";
     if (s.shadow != null) this.applyShadow(btn, s.shadow);
