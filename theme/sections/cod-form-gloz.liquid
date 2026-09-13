@@ -115,6 +115,31 @@
     {%- endif -%}
   </div>
 
+  {%- comment -%}
+    Colores que ahora viven DENTRO de su bloque (ofertas / botón COD / pago
+    anticipado). Se capturan aquí para meterlos en el objeto "theme" que lee el
+    JS, sin cambiar el JS. Si el bloque no está o el color está vacío, se usa el
+    valor por defecto.
+  {%- endcomment -%}
+  {%- assign th_offer_sel_bg = '#EAF3EF' -%}
+  {%- assign th_offer_sel_border = '#2E6E5A' -%}
+  {%- assign th_badge_bg = '#E8912D' -%}
+  {%- assign th_badge_text = '#1A1400' -%}
+  {%- assign th_cta_bg = '#14342B' -%}
+  {%- assign th_cta_text = '#FFFFFF' -%}
+  {%- assign th_prepaid = '#2E6E5A' -%}
+  {%- for b in section.blocks -%}
+    {%- if b.type == 'offers' -%}
+      {%- if b.settings.offer_selected_bg != blank -%}{%- assign th_offer_sel_bg = b.settings.offer_selected_bg -%}{%- endif -%}
+      {%- if b.settings.offer_selected_border != blank -%}{%- assign th_offer_sel_border = b.settings.offer_selected_border -%}{%- endif -%}
+      {%- if b.settings.badge_bg != blank -%}{%- assign th_badge_bg = b.settings.badge_bg -%}{%- endif -%}
+      {%- if b.settings.badge_text != blank -%}{%- assign th_badge_text = b.settings.badge_text -%}{%- endif -%}
+    {%- elsif b.type == 'cod_button' -%}
+      {%- if b.settings.bg != blank -%}{%- assign th_cta_bg = b.settings.bg -%}{%- endif -%}
+      {%- if b.settings.text_color != blank -%}{%- assign th_cta_text = b.settings.text_color -%}{%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+
   {%- comment %}
     ── Datos de la sección para el JS (en el orden real de section.blocks) ──
     Todo lo que el popup necesita: URL del backend, producto/variante actual,
@@ -152,13 +177,13 @@
       "mutedTextColor": {{ s.muted_text_color | json }},
       "borderColor": {{ s.border_color | json }},
       "accentColor": {{ s.accent_color | json }},
-      "offerSelectedBg": {{ s.offer_selected_bg | json }},
-      "offerSelectedBorder": {{ s.offer_selected_border | json }},
-      "badgeBg": {{ s.badge_bg | json }},
-      "badgeText": {{ s.badge_text | json }},
-      "ctaBg": {{ s.cta_bg | json }},
-      "ctaText": {{ s.cta_text | json }},
-      "prepaidColor": {{ s.prepaid_color | json }},
+      "offerSelectedBg": {{ th_offer_sel_bg | json }},
+      "offerSelectedBorder": {{ th_offer_sel_border | json }},
+      "badgeBg": {{ th_badge_bg | json }},
+      "badgeText": {{ th_badge_text | json }},
+      "ctaBg": {{ th_cta_bg | json }},
+      "ctaText": {{ th_cta_text | json }},
+      "prepaidColor": {{ th_prepaid | json }},
       "errorColor": {{ s.error_color | json }},
       "overlayColor": {{ s.overlay_color | json }},
       "overlayOpacity": {{ s.overlay_opacity | json }},
@@ -421,74 +446,58 @@
   "class": "cod-form-gloz-section",
   "max_blocks": 30,
   "settings": [
-    { "type": "header", "content": "Backend" },
-    { "type": "text", "id": "api_url", "label": "URL del backend (Worker)", "info": "Pega aquí la URL de TU Worker en Cloudflare. Cloudflare te la da al terminar la instalación (termina en .workers.dev). Sin esto, el formulario no funciona." },
-
-    { "type": "header", "content": "Integraciones: Meta + TikTok" },
-    { "type": "checkbox", "id": "meta_enabled", "label": "Activar Meta Pixel/CAPI", "default": false },
-    { "type": "text", "id": "meta_pixel_id", "label": "ID del Pixel de Meta", "info": "Es público, va en el navegador. El token de la Conversions API se configura aparte, en el Worker (secreto)." },
-    { "type": "checkbox", "id": "tiktok_enabled", "label": "Activar TikTok Pixel", "default": false },
-    { "type": "text", "id": "tiktok_pixel_id", "label": "Pixel Code de TikTok", "info": "Es público. El token de la Events API se configura en el Worker (secreto)." },
-
-    { "type": "header", "content": "Botón que abre el popup" },
+    { "type": "header", "content": "① Botón que abre el formulario" },
     { "type": "checkbox", "id": "show_trigger", "label": "Mostrar el botón que abre el formulario", "default": true, "info": "Apágalo si vas a usar tus propios botones (con data-gloz-open) para abrir el formulario. El popup sigue funcionando igual." },
-    { "type": "text", "id": "trigger_text", "label": "Texto del botón", "default": "🛒 Pedir con pago contra entrega" },
+    { "type": "text", "id": "trigger_text", "label": "Texto del botón", "default": "Paga al recibir en casa" },
     { "type": "text", "id": "trigger_subtitle", "label": "Subtítulo (opcional)", "info": "Segunda línea, más pequeña, debajo del texto principal." },
-    { "type": "select", "id": "trigger_icon", "label": "Ícono del botón", "default": "none", "options": [
+    { "type": "select", "id": "trigger_icon", "label": "Ícono del botón", "default": "truck", "options": [
       { "value": "none", "label": "Ninguno" },
+      { "value": "truck", "label": "Camión (entrega)" },
+      { "value": "cash", "label": "Billete (pago)" },
       { "value": "cart", "label": "Carrito" },
       { "value": "bag", "label": "Bolsa" },
       { "value": "whatsapp", "label": "WhatsApp" },
       { "value": "check", "label": "Check" }
     ]},
     { "type": "range", "id": "trigger_font_size", "label": "Tamaño del texto", "min": 12, "max": 24, "step": 1, "unit": "px", "default": 17 },
-    { "type": "color", "id": "trigger_bg", "label": "Fondo del botón", "default": "#E8912D" },
-    { "type": "color", "id": "trigger_text_color", "label": "Texto del botón", "default": "#1A1400" },
+    { "type": "select", "id": "button_style", "label": "Relleno", "default": "solid", "options": [
+      { "value": "solid", "label": "Sólido" },
+      { "value": "soft", "label": "Suave" },
+      { "value": "outline", "label": "Contorno" }
+    ]},
+    { "type": "select", "id": "button_size", "label": "Tamaño", "default": "lg", "options": [
+      { "value": "md", "label": "Normal" },
+      { "value": "lg", "label": "Grande" }
+    ]},
+    { "type": "color", "id": "trigger_bg", "label": "Fondo del botón", "default": "#14342B" },
+    { "type": "color", "id": "trigger_text_color", "label": "Texto del botón", "default": "#FFFFFF" },
     { "type": "color", "id": "trigger_border_color", "label": "Color del borde", "info": "Si lo dejas vacío usa el color de fondo." },
     { "type": "range", "id": "trigger_border_width", "label": "Grosor del borde", "min": 0, "max": 6, "step": 1, "unit": "px", "default": 0 },
-    { "type": "range", "id": "trigger_radius", "label": "Radio de esquinas", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 20 },
+    { "type": "range", "id": "trigger_radius", "label": "Radio de esquinas", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 14 },
     { "type": "range", "id": "trigger_shadow", "label": "Sombra del botón", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 22 },
     { "type": "checkbox", "id": "trigger_full_width", "label": "Botón a todo el ancho", "default": true },
     { "type": "color", "id": "trigger_section_bg", "label": "Fondo detrás del botón", "info": "Color del contenedor. Vacío = transparente." },
-    { "type": "select", "id": "trigger_anim_style", "label": "Animación del botón", "default": "none", "options": [
+    { "type": "select", "id": "trigger_anim_style", "label": "Animación del botón", "default": "pulse", "options": [
       { "value": "none", "label": "Ninguna" },
       { "value": "pulse", "label": "Pulso" },
       { "value": "shine", "label": "Brillo" },
       { "value": "shake", "label": "Sacudida" }
     ]},
 
-    { "type": "header", "content": "Encabezado del popup" },
-    { "type": "checkbox", "id": "show_header", "label": "Mostrar imagen y nombre del producto arriba", "default": false, "info": "Si lo apagas, solo queda el botón de cerrar (X) arriba a la derecha." },
-
-    { "type": "header", "content": "Campos del formulario" },
-    { "type": "select", "id": "field_contour", "label": "Contorno de los campos", "default": "round", "options": [
-      { "value": "rect", "label": "Rectangular" },
-      { "value": "round", "label": "Redondeado" },
-      { "value": "oval", "label": "Ovalado" }
-    ]},
-    { "type": "range", "id": "field_shadow", "label": "Sombra de los campos", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 0 },
-
-    { "type": "header", "content": "Colores del popup" },
+    { "type": "header", "content": "② Colores generales del popup", "info": "Los colores de ofertas y botones se configuran DENTRO de su propio bloque." },
     { "type": "color", "id": "popup_bg", "label": "Fondo del popup", "default": "#FFFFFF" },
     { "type": "color", "id": "text_color", "label": "Texto principal", "default": "#17211D" },
     { "type": "color", "id": "muted_text_color", "label": "Texto secundario", "default": "#5B6560" },
     { "type": "color", "id": "border_color", "label": "Bordes", "default": "#E6E3DA" },
     { "type": "color", "id": "accent_color", "label": "Color de marca (acentos, foco, radios)", "default": "#2E6E5A" },
-    { "type": "color", "id": "offer_selected_bg", "label": "Fondo de la oferta seleccionada", "default": "#EAF3EF" },
-    { "type": "color", "id": "offer_selected_border", "label": "Borde de la oferta seleccionada", "default": "#2E6E5A" },
-    { "type": "color", "id": "badge_bg", "label": "Fondo de las etiquetas", "default": "#E8912D" },
-    { "type": "color", "id": "badge_text", "label": "Texto de las etiquetas", "default": "#1A1400" },
-    { "type": "color", "id": "cta_bg", "label": "Fondo botón contra entrega", "default": "#E8912D" },
-    { "type": "color", "id": "cta_text", "label": "Texto botón contra entrega", "default": "#1A1400" },
-    { "type": "color", "id": "prepaid_color", "label": "Color botón pago anticipado", "default": "#2E6E5A" },
     { "type": "color", "id": "error_color", "label": "Color de error", "default": "#DC2626" },
 
-    { "type": "header", "content": "Fondo oscuro detrás del popup" },
+    { "type": "header", "content": "③ Fondo oscuro detrás del popup" },
     { "type": "color", "id": "overlay_color", "label": "Color del overlay", "default": "#0F1714" },
     { "type": "range", "id": "overlay_opacity", "label": "Opacidad del overlay", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 55 },
     { "type": "range", "id": "overlay_blur", "label": "Desenfoque del overlay", "min": 0, "max": 20, "step": 1, "unit": "px", "default": 4 },
 
-    { "type": "header", "content": "Tipografía y forma" },
+    { "type": "header", "content": "④ Tipografía y forma" },
     { "type": "checkbox", "id": "inherit_theme_font", "label": "Usar la tipografía del tema", "default": true, "info": "Si lo apagas, el popup usa una tipografía moderna propia." },
     { "type": "select", "id": "font_scale", "label": "Tamaño del texto", "default": "md", "options": [
       { "value": "sm", "label": "Pequeño" },
@@ -509,18 +518,15 @@
       { "value": "relaxed", "label": "Amplio" }
     ]},
 
-    { "type": "header", "content": "Estilo del botón que abre el popup" },
-    { "type": "select", "id": "button_style", "label": "Relleno", "default": "solid", "options": [
-      { "value": "solid", "label": "Sólido" },
-      { "value": "soft", "label": "Suave" },
-      { "value": "outline", "label": "Contorno" }
+    { "type": "header", "content": "⑤ Estilo de los campos" },
+    { "type": "select", "id": "field_contour", "label": "Contorno de los campos", "default": "round", "options": [
+      { "value": "rect", "label": "Rectangular" },
+      { "value": "round", "label": "Redondeado" },
+      { "value": "oval", "label": "Ovalado" }
     ]},
-    { "type": "select", "id": "button_size", "label": "Tamaño", "default": "lg", "options": [
-      { "value": "md", "label": "Normal" },
-      { "value": "lg", "label": "Grande" }
-    ]},
+    { "type": "range", "id": "field_shadow", "label": "Sombra de los campos", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 0 },
 
-    { "type": "header", "content": "Animación" },
+    { "type": "header", "content": "⑥ Animación" },
     { "type": "checkbox", "id": "enable_animations", "label": "Activar animaciones", "default": true },
     { "type": "select", "id": "entrance_style", "label": "Entrada del popup", "default": "slide-up", "options": [
       { "value": "fade", "label": "Aparecer (fade)" },
@@ -534,14 +540,24 @@
     ]},
     { "type": "checkbox", "id": "enable_hover_fx", "label": "Micro-interacciones al pasar mouse", "default": true },
 
-    { "type": "header", "content": "Textos generales del formulario" },
+    { "type": "header", "content": "⑦ Textos generales del formulario" },
     { "type": "text", "id": "submitting_text", "label": "Texto mientras se envía", "default": "Enviando tu pedido…" },
     { "type": "text", "id": "success_title", "label": "Título de éxito", "default": "¡Pedido confirmado!" },
     { "type": "text", "id": "success_body", "label": "Mensaje de éxito", "default": "Te contactaremos por WhatsApp para coordinar la entrega. Pagas cuando lo recibas." },
     { "type": "range", "id": "success_size", "label": "Tamaño del texto de éxito", "info": "Tamaño del título; el mensaje y el N° de pedido se ajustan en proporción.", "min": 16, "max": 40, "step": 1, "unit": "px", "default": 30 },
     { "type": "text", "id": "error_generic_text", "label": "Mensaje de error genérico", "default": "No pudimos enviar tu pedido. Intenta de nuevo." },
     { "type": "range", "id": "notice_size", "label": "Tamaño del texto de aviso/error", "min": 12, "max": 24, "step": 1, "unit": "px", "default": 15 },
-    { "type": "text", "id": "close_label", "label": "Texto accesible de cerrar", "default": "Cerrar" }
+    { "type": "text", "id": "close_label", "label": "Texto accesible de cerrar", "default": "Cerrar" },
+
+    { "type": "header", "content": "⑧ Encabezado del popup" },
+    { "type": "checkbox", "id": "show_header", "label": "Mostrar imagen y nombre del producto arriba", "default": false, "info": "Si lo apagas, solo queda el botón de cerrar (X) arriba a la derecha." },
+
+    { "type": "header", "content": "⑨ Técnico — Backend + Pixel", "info": "No lo toques salvo que sepas lo que haces." },
+    { "type": "text", "id": "api_url", "label": "URL del backend (Worker)", "info": "La URL de TU Worker en Cloudflare (termina en .workers.dev). Sin esto, el formulario no funciona." },
+    { "type": "checkbox", "id": "meta_enabled", "label": "Activar Meta Pixel/CAPI", "default": false },
+    { "type": "text", "id": "meta_pixel_id", "label": "ID del Pixel de Meta", "info": "Es público, va en el navegador. El token de la Conversions API se configura aparte, en el Worker (secreto)." },
+    { "type": "checkbox", "id": "tiktok_enabled", "label": "Activar TikTok Pixel", "default": false },
+    { "type": "text", "id": "tiktok_pixel_id", "label": "Pixel Code de TikTok", "info": "Es público. El token de la Events API se configura en el Worker (secreto)." }
   ],
   "blocks": [
     {
@@ -572,6 +588,10 @@
         { "type": "checkbox", "id": "show_compare_at", "label": "Mostrar precio tachado", "default": true },
         { "type": "color", "id": "offer_bg", "label": "Fondo de cada oferta", "info": "Vacío = usa el fondo del popup." },
         { "type": "color", "id": "offer_border_color", "label": "Borde de cada oferta", "info": "Vacío = usa el color de bordes." },
+        { "type": "color", "id": "offer_selected_bg", "label": "Fondo de la oferta SELECCIONADA", "default": "#EAF3EF" },
+        { "type": "color", "id": "offer_selected_border", "label": "Borde de la oferta SELECCIONADA", "default": "#2E6E5A" },
+        { "type": "color", "id": "badge_bg", "label": "Fondo de la insignia (\"MÁS VENDIDO\")", "default": "#E8912D" },
+        { "type": "color", "id": "badge_text", "label": "Texto de la insignia", "default": "#1A1400" },
         { "type": "range", "id": "offer_radius", "label": "Radio de esquinas", "min": 0, "max": 28, "step": 2, "unit": "px", "default": 14 },
         { "type": "select", "id": "badge_style", "label": "Estilo de la insignia", "default": "pill", "options": [
           { "value": "pill", "label": "Píldora" },
